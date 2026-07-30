@@ -4,14 +4,14 @@ import "./globals.css";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export const metadata:Metadata={
-  title:"BackToSelf Workspace",
-  description:"把注意力重新放回身体、工作、生活和成长。",
-  applicationName:"BackToSelf Workspace",
-  appleWebApp:{capable:true,statusBarStyle:"default",title:"BackToSelf"},
+  title:"橙子成长工作台",
+  description:"记录工作、生活、健康与成长。",
+  applicationName:"橙子成长工作台",
+  appleWebApp:{capable:true,statusBarStyle:"default",title:"橙子工作台"},
   manifest:`${basePath}/manifest.webmanifest`,
-  icons:{icon:`${basePath}/icon.svg`,apple:`${basePath}/icon.svg`},
-  openGraph:{title:"BackToSelf Workspace",description:"今天，只完成眼前这一小步。"},
-  twitter:{card:"summary",title:"BackToSelf Workspace",description:"今天，只完成眼前这一小步。"}
+  icons:{icon:`${basePath}/icon.png`,apple:`${basePath}/icon.png`},
+  openGraph:{title:"橙子成长工作台",description:"按自己的节奏，记录每一点成长。"},
+  twitter:{card:"summary",title:"橙子成长工作台",description:"按自己的节奏，记录每一点成长。"}
 };
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#f4f1ea"},{media:"(prefers-color-scheme: dark)",color:"#1c201e"}]};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="zh-CN"><body>{children}</body></html>}

@@ -261,8 +261,13 @@ function SearchResults({data,query,go}:{data:WorkspaceData;query:string;go:(p:Pa
 
 function Empty({title,note,action,onClick}:{title:string;note:string;action?:string;onClick?:()=>void}){return <div className="empty"><Sparkles/><h3>{title}</h3><p>{note}</p>{action&&<button className="secondary" onClick={onClick}>{action}</button>}</div>}
 
-async function loadPhoto(file:File):Promise<HTMLImageElement>{
-  return new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image"))};img.src=url});
+async function loadPhoto(source:Blob|string):Promise<HTMLImageElement>{
+  return new Promise<HTMLImageElement>((resolve,reject)=>{
+    const img=new Image(),url=typeof source==="string"?source:URL.createObjectURL(source);
+    img.onload=()=>{if(typeof source!=="string")URL.revokeObjectURL(url);resolve(img)};
+    img.onerror=()=>{if(typeof source!=="string")URL.revokeObjectURL(url);reject(new Error("image"))};
+    img.src=url;
+  });
 }
 
 async function processLocalPhoto(file:File):Promise<string>{
@@ -278,19 +283,25 @@ async function processLocalPhoto(file:File):Promise<string>{
 type CupDetector={detect:(input:HTMLCanvasElement,maxNumBoxes?:number,minScore?:number)=>Promise<{bbox:[number,number,number,number];class:string;score:number}[]>};
 let cupDetectorPromise:Promise<CupDetector>|null=null;
 async function getCupDetector():Promise<CupDetector>{
-  if(!cupDetectorPromise)cupDetectorPromise=(async()=>{const [tf,coco]=await Promise.all([import("@tensorflow/tfjs"),import("@tensorflow-models/coco-ssd")]);await tf.ready();return coco.load({base:"lite_mobilenet_v2"})})();
+  if(!cupDetectorPromise)cupDetectorPromise=(async()=>{
+    const [tf,coco]=await Promise.all([import("@tensorflow/tfjs"),import("@tensorflow-models/coco-ssd")]);
+    await tf.ready();
+    const modelUrl=new URL(`${basePath}/models/ssdlite_mobilenet_v2/model.json`,window.location.origin).toString();
+    return coco.load({base:"lite_mobilenet_v2",modelUrl});
+  })().catch(error=>{cupDetectorPromise=null;throw error});
   return cupDetectorPromise;
 }
 
-async function processCupSticker(file:File):Promise<string>{
-  const source=await loadPhoto(file);
+async function processCupSticker(input:Blob|string):Promise<string>{
+  const source=await loadPhoto(input);
   const detectScale=Math.min(1,640/Math.max(source.naturalWidth,source.naturalHeight));
   const detectCanvas=document.createElement("canvas");
   detectCanvas.width=Math.max(1,Math.round(source.naturalWidth*detectScale));detectCanvas.height=Math.max(1,Math.round(source.naturalHeight*detectScale));
   const detectContext=detectCanvas.getContext("2d");if(!detectContext)throw new Error("canvas");
   detectContext.drawImage(source,0,0,detectCanvas.width,detectCanvas.height);
   const detector=await getCupDetector();
-  const cup=(await detector.detect(detectCanvas,10,.15)).filter(item=>item.class==="cup").sort((a,b)=>b.score-a.score)[0];
+  const detected=await detector.detect(detectCanvas,10,.25);
+  const cup=detected.filter(item=>item.class==="cup"&&item.score>=.6).sort((a,b)=>b.score-a.score)[0];
   if(!cup)throw new Error("NO_CUP");
 
   const [boxX,boxY,boxW,boxH]=cup.bbox,padX=boxW*.16,padY=boxH*.13;
@@ -339,7 +350,31 @@ function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的�
   const [step,setStep]=useState(0);
   const [processing,setProcessing]=useState(false);
   const set=(k:string,v:string)=>setForm(f=>({...f,[k]:v}));
-  async function readPhoto(file:File|undefined,cupOnly=false){if(!file)return;setProcessing(true);set("photoError","");try{const photo=cupOnly?await processCupSticker(file):await processLocalPhoto(file);set("photo",photo);set("sticker",cupOnly?"true":"")}catch(error){const message=error instanceof Error&&error.message==="NO_CUP"?"没有识别到杯子，请让杯子单独、完整地出现在画面中。":"杯子识别暂时失败，请检查网络或换一张照片重试。";set("photo","");set("sticker","");set("photoError",message);notify(message)}finally{setProcessing(false)}}
+  async function recognizeCup(source:Blob|string){
+    setProcessing(true);set("photoError","");
+    try{
+      const sticker=await processCupSticker(source);
+      set("photo",sticker);set("sticker","true");set("photoStatus","sticker");
+      notify("杯子贴纸已生成");
+    }catch(error){
+      const noCup=error instanceof Error&&error.message==="NO_CUP";
+      const message=noCup?"照片已保留，但没有识别到杯子。请让杯子占画面一半以上再试。":"照片已保留，贴纸暂未生成。可以保存记录，或点击“重新生成贴纸”。";
+      set("sticker","");set("photoStatus","original");set("photoError",message);notify(message);
+    }finally{setProcessing(false)}
+  }
+  async function readPhoto(file:File|undefined,cupOnly=false){
+    if(!file)return;
+    setProcessing(true);set("photoError","");
+    try{
+      const photo=await processLocalPhoto(file);
+      set("photo",photo);set("sourcePhoto",photo);set("sticker","");set("photoStatus",cupOnly?"original":"ready");
+      if(cupOnly)await recognizeCup(file);else notify("照片已加入");
+    }catch{
+      const message="照片读取失败，请重新拍摄或换一张照片。";
+      set("photo","");set("sourcePhoto","");set("sticker","");set("photoError",message);notify(message);
+    }finally{setProcessing(false)}
+  }
+  async function retryCup(){if(form.sourcePhoto)await recognizeCup(form.sourcePhoto)}
   function save(){
     const today=localDateKey();
     if(modal==="task"){if(!form.title)return notify("请填写任务名称");const minutes=Math.min(600,Math.max(5,+form.minutes||30));update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:form.title,next:form.next||"明确下一步并开始",standard:form.standard||"达到预期结果",minutes,category:form.category||"其他",priority:form.priority||"普通",done:false}]}));}
@@ -360,7 +395,7 @@ function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的�
     {modal==="temporary"&&<><Field label="任务名称"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="突然出现的事情"/></Field><Field label="截止日期（可选）"><input type="date" onChange={e=>set("deadline",e.target.value)}/></Field><Field label="优先级"><select onChange={e=>set("priority",e.target.value)}><option>普通</option><option>紧急重要</option><option>重要不紧急</option><option>可延后</option></select></Field></>}
     {modal==="expense"&&<><Field label="金额"><div className="money-input"><span>¥</span><input type="number" inputMode="decimal" min=".01" step=".01" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="0.00"/></div></Field><div className="form-grid"><Field label="类型"><select value={form.type||"支出"} onChange={e=>set("type",e.target.value)}><option>支出</option><option>收入</option><option>转账</option></select></Field><Field label="分类"><select value={form.category||"餐饮"} onChange={e=>set("category",e.target.value)}><option>餐饮</option><option>交通</option><option>购物</option><option>学习</option><option>医疗</option><option>工作</option><option>其他</option></select></Field></div><Field label="备注"><input value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder={form.type==="收入"?"这笔收入来自哪里？":form.type==="转账"?"转入或转出的账户":"这笔钱花在哪里？"}/></Field><div className="privacy-note">收入增加本月结余，支出减少本月结余；账户之间的转账不计入收支。</div></>}
     {modal==="weight"&&<><Field label="体重（kg）"><input autoFocus type="number" inputMode="decimal" step=".1" value={form.value||""} onChange={e=>set("value",e.target.value)} placeholder="例如 62.5"/></Field><div className="privacy-note">体重只是身体状态的一项记录，不代表你的价值。每周记录一次就足够了。</div></>}
-    {modal==="drink"&&<><div className={`photo-upload cup-sticker-preview${form.sticker==="true"?" ready":""}`}>{processing?<div className="photo-processing"><Sparkles/><b>正在识别杯子…</b><span>只提取杯子，不处理画面里的其他物品</span></div>:form.photo?<img src={form.photo} alt="杯子卡通贴纸预览"/>:<div><Camera size={28}/><b>添加一张饮品照片</b><span>让杯子单独、完整地出现在画面中</span></div>}</div>{form.photoError&&<div className="photo-error">{form.photoError}</div>}<div className="photo-actions"><label className="secondary"><Camera size={17}/>打开相机<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label></div><div className="form-grid"><Field label="饮品名称"><input value={form.name||""} onChange={e=>set("name",e.target.value)} placeholder="例如：燕麦拿铁"/></Field><Field label="饮品类型"><select onChange={e=>set("type",e.target.value)}><option>咖啡</option><option>茶</option><option>牛奶</option><option>果汁</option><option>气泡水</option><option>其他饮品</option></select></Field></div><Field label="大约容量（ml，可选）"><input type="number" inputMode="numeric" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="例如 350"/></Field><div className="cartoon-note"><CupSoda/><span>首次使用需要联网加载杯子识别模型。照片不会上传；识别、透明背景、卡通轮廓和白边都在本机完成。</span></div></>}
+    {modal==="drink"&&<><div className={`photo-upload cup-sticker-preview${form.sticker==="true"?" ready":""}`}>{processing?<div className="photo-processing"><Sparkles/><b>正在生成杯子贴纸…</b><span>只提取杯子，不处理画面里的其他物品</span></div>:form.photo?<><img src={form.photo} alt={form.sticker==="true"?"杯子卡通贴纸预览":"已选择的饮品照片"}/>{form.sticker!=="true"&&<span className="original-photo-badge">照片已加入 · 待生成贴纸</span>}</>:<div><Camera size={28}/><b>添加一张饮品照片</b><span>让杯子单独、完整地出现在画面中</span></div>}</div>{form.photoError&&<div className="photo-error"><span>{form.photoError}</span>{form.sourcePhoto&&<button type="button" onClick={retryCup}><Sparkles size={15}/>重新生成贴纸</button>}</div>}<div className="photo-actions"><label className="secondary"><Camera size={17}/>打开相机<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label></div><div className="form-grid"><Field label="饮品名称"><input value={form.name||""} onChange={e=>set("name",e.target.value)} placeholder="例如：燕麦拿铁"/></Field><Field label="饮品类型"><select onChange={e=>set("type",e.target.value)}><option>咖啡</option><option>茶</option><option>牛奶</option><option>果汁</option><option>气泡水</option><option>其他饮品</option></select></Field></div><Field label="大约容量（ml，可选）"><input type="number" inputMode="numeric" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="例如 350"/></Field><div className="cartoon-note"><CupSoda/><span>杯子识别模型已内置到应用中，不再依赖国外网络。照片不会上传；只有识别出的杯子会生成卡通贴纸。</span></div></>}
     {modal==="outfit"&&<><div className="photo-upload outfit-preview">{processing?<div className="photo-processing"><Sparkles/><b>正在整理照片…</b></div>:form.photo?<img src={form.photo} alt="今日穿搭预览"/>:<div><Shirt size={28}/><b>上传今日穿搭</b><span>保留照片原貌，用 Lookbook 卡片展示</span></div>}</div><div className="photo-actions"><label className="secondary"><Camera size={17}/>拍摄穿搭<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0])}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0])}/></label></div><div className="form-grid"><Field label="场合（可选）"><select value={form.occasion||""} onChange={e=>set("occasion",e.target.value)}><option value="">日常</option><option>上班</option><option>约会</option><option>运动</option><option>旅行</option><option>居家</option></select></Field><Field label="今天的感觉"><select value={form.mood||""} onChange={e=>set("mood",e.target.value)}><option value="">暂不填写</option><option>舒服自在</option><option>清爽利落</option><option>温柔松弛</option><option>有点特别</option></select></Field></div><Field label="穿搭备注（可选）"><input value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder="例如：第一次尝试这组配色"/></Field></>}
     {modal==="period"&&<><div className="form-grid"><Field label="开始日期"><input autoFocus type="date" value={form.startDate||""} onChange={e=>set("startDate",e.target.value)}/></Field><Field label="结束日期（可稍后补充）"><input type="date" value={form.endDate||""} onChange={e=>set("endDate",e.target.value)}/></Field></div><Field label="经量感受（可选）"><select value={form.flow||""} onChange={e=>set("flow",e.target.value)}><option value="">暂不记录</option><option>较少</option><option>正常</option><option>较多</option></select></Field><Field label="身体感受或备注（可选）"><textarea value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder="例如：第一天有轻微腹痛，今天想多休息。"/></Field><div className="privacy-note">周期预测仅作个人记录参考，不能替代医疗建议或作为避孕依据。</div></>}
     {modal==="note"&&<><div className="form-grid"><Field label="类型"><select onChange={e=>set("type",e.target.value)}><option>灵感</option><option>播客笔记</option><option>读书笔记</option></select></Field><Field label="标题"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="笔记标题"/></Field></div><Field label="核心内容"><textarea value={form.content||""} onChange={e=>set("content",e.target.value)} placeholder="对我真正有用的内容…"/></Field><Field label="可以采取的行动"><input value={form.action||""} onChange={e=>set("action",e.target.value)} placeholder="可一键转为任务"/></Field></>}

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildMonthCalendar,
   expenseByCategory,
   localDateKey,
   normalizeMoney,
@@ -39,6 +40,13 @@ test("金额保存为两位小数且非法金额归零",()=>{
 });
 test("本地日期不会使用 UTC 日期替代",()=>{
   assert.equal(localDateKey(new Date(2026,6,30,23,59)),"2026-07-30");
+});
+test("日历按周一开头生成完整六周且日期准确",()=>{
+  const cells=buildMonthCalendar(2026,6);
+  assert.equal(cells.length,42);
+  assert.equal(cells[0].dateKey,"2026-06-29");
+  assert.equal(cells.find(x=>x.dateKey==="2026-07-30")?.day,30);
+  assert.equal(cells.at(-1)?.dateKey,"2026-08-09");
 });
 test("未完成任务自动顺延最多两项",()=>{const pending=[1,2,3,4];assert.deepEqual(pending.slice(0,2),[1,2])});
 test("计时器按结束时间恢复",()=>{const now=1_000_000,end=now+25*60*1000;assert.equal(Math.ceil((end-now)/1000),1500)});

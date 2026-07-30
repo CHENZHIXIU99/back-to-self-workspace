@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
+const isNativeApp = process.env.NATIVE_APP === "true";
 const basePath = isGitHubPages ? "/back-to-self-workspace" : "";
 
 const nextConfig: NextConfig = {
@@ -12,7 +13,7 @@ const nextConfig: NextConfig = {
   typescript: {
     // The Sites starter includes Cloudflare-only server types that are not part
     // of this fully client-side GitHub Pages build.
-    ignoreBuildErrors: isGitHubPages,
+    ignoreBuildErrors: isGitHubPages || isNativeApp,
   },
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,

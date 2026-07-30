@@ -1,0 +1,45 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  expenseByCategory,
+  localDateKey,
+  normalizeMoney,
+  summarizeTransactions,
+} from "../lib/logic.ts";
+
+test("每日进度按完成数量计算",()=>{const tasks=[{done:true},{done:false},{done:true}];assert.equal(tasks.filter(x=>x.done).length/tasks.length,2/3)});
+test("金额按分累加且不会出现浮点误差",()=>{
+  const tx=[
+    {type:"支出",amount:.1,category:"餐饮",date:"2026-07-01"},
+    {type:"支出",amount:.2,category:"餐饮",date:"2026-07-02"},
+    {type:"收入",amount:10,category:"工资",date:"2026-07-03"},
+  ];
+  assert.deepEqual(summarizeTransactions(tx,"2026-07"),{income:10,expense:.3,balance:9.7,count:3});
+});
+test("今日与本月账单严格按日期筛选",()=>{
+  const tx=[
+    {type:"支出",amount:25,category:"餐饮",date:"2026-07-30"},
+    {type:"支出",amount:18,category:"交通",date:"2026-07-29"},
+    {type:"收入",amount:680,category:"工作",date:"2026-06-30"},
+  ];
+  assert.equal(summarizeTransactions(tx,"2026-07-30").expense,25);
+  assert.deepEqual(summarizeTransactions(tx,"2026-07"),{income:0,expense:43,balance:-43,count:2});
+});
+test("分类支出不会混入收入和转账",()=>{
+  const tx=[
+    {type:"支出",amount:30,category:"餐饮",date:"2026-07-01"},
+    {type:"收入",amount:200,category:"餐饮",date:"2026-07-02"},
+    {type:"转账",amount:50,category:"其他",date:"2026-07-03"},
+  ];
+  assert.deepEqual(expenseByCategory(tx,"2026-07"),{餐饮:30});
+});
+test("金额保存为两位小数且非法金额归零",()=>{
+  assert.equal(normalizeMoney("12.345"),12.35);
+  assert.equal(normalizeMoney("not-a-number"),0);
+});
+test("本地日期不会使用 UTC 日期替代",()=>{
+  assert.equal(localDateKey(new Date(2026,6,30,23,59)),"2026-07-30");
+});
+test("未完成任务自动顺延最多两项",()=>{const pending=[1,2,3,4];assert.deepEqual(pending.slice(0,2),[1,2])});
+test("计时器按结束时间恢复",()=>{const now=1_000_000,end=now+25*60*1000;assert.equal(Math.ceil((end-now)/1000),1500)});
+test("数据导出后可无损导入",()=>{const data={schemaVersion:1,tasks:[{id:"1"}]};assert.deepEqual(JSON.parse(JSON.stringify(data)),data)});

@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   buildMonthCalendar,
   expenseByCategory,
@@ -51,3 +53,14 @@ test("日历按周一开头生成完整六周且日期准确",()=>{
 test("未完成任务自动顺延最多两项",()=>{const pending=[1,2,3,4];assert.deepEqual(pending.slice(0,2),[1,2])});
 test("计时器按结束时间恢复",()=>{const now=1_000_000,end=now+25*60*1000;assert.equal(Math.ceil((end-now)/1000),1500)});
 test("数据导出后可无损导入",()=>{const data={schemaVersion:1,tasks:[{id:"1"}]};assert.deepEqual(JSON.parse(JSON.stringify(data)),data)});
+test("内置杯子识别模型及全部权重文件完整",()=>{
+  const modelDir=fileURLToPath(new URL("../public/models/ssdlite_mobilenet_v2/",import.meta.url));
+  const manifest=JSON.parse(readFileSync(`${modelDir}/model.json`,"utf8"));
+  const shards=manifest.weightsManifest.flatMap(group=>group.paths);
+  assert.equal(shards.length,5);
+  for(const shard of shards){
+    const file=`${modelDir}/${shard}`;
+    assert.ok(existsSync(file),`${shard} 应存在`);
+    assert.ok(statSync(file).size>1_000_000,`${shard} 不应为空`);
+  }
+});

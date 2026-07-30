@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { loadWorkspace, saveWorkspace, type WorkspaceData, seedData } from "@/lib/db";
 import {
+  buildMonthCalendar,
   expenseByCategory,
   localDateKey,
   normalizeMoney,
@@ -98,12 +99,16 @@ export default function HomePage() {
     download("橙子成长工作台-每周复盘.md",md,"text/markdown");
   }
   function download(name:string,text:string,type:string){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name;a.click();URL.revokeObjectURL(a.href); }
-  async function importFile(file:File){ try{ const parsed=JSON.parse(await file.text()); if(!parsed.schemaVersion||!Array.isArray(parsed.tasks)) throw new Error(); setData({...seedData,...parsed,schemaVersion:4,updatedAt:new Date().toISOString(),health:{...seedData.health,...parsed.health},drinks:parsed.drinks||[],outfits:parsed.outfits||[],periods:parsed.periods||[]});notify("数据已恢复"); }catch{notify("无法导入：文件格式不正确");} }
+  async function importFile(file:File){ try{ const parsed=JSON.parse(await file.text()); if(!parsed.schemaVersion||!Array.isArray(parsed.tasks)) throw new Error(); setData({...seedData,...parsed,schemaVersion:6,updatedAt:new Date().toISOString(),profile:{...seedData.profile,...parsed.profile},health:{...seedData.health,...parsed.health},drinks:(parsed.drinks||[]).map((x:WorkspaceData["drinks"][number])=>({...x,sticker:x.sticker||false})),outfits:parsed.outfits||[],periods:parsed.periods||[]});notify("数据已恢复"); }catch{notify("无法导入：文件格式不正确");} }
+
+  const ownerName=data.profile.name.trim();
+  const workspaceName=ownerName?`${ownerName}的工作台`:"我的工作台";
+  useEffect(()=>{if(ready)document.title=workspaceName},[ready,workspaceName]);
 
   if (!ready) return <div className="loading"><div className="breath"/><p>正在打开橙子成长工作台…</p></div>;
   return <div className={`app${theme==="dark"?" dark":""} font-${font}`}>
     <aside className="sidebar">
-      <div className="brand"><img className="brand-logo" src={`${basePath}/icon.png`} alt="橙子成长工作台"/><div><b>橙子成长工作台</b><span>MY GROWTH SPACE</span></div></div>
+      <div className="brand"><img className="brand-logo" src={`${basePath}/icon.png`} alt={workspaceName}/><div><b>{workspaceName}</b><span>MY GROWTH SPACE</span></div></div>
       <nav>{nav.map(n=><button key={n.id} className={page===n.id?"active":""} onClick={()=>setPage(n.id)}><n.icon size={18}/>{n.label}</button>)}</nav>
       <div className="side-quote">慢一点也没关系，把今天过得清楚一点。</div>
     </aside>
@@ -119,21 +124,21 @@ export default function HomePage() {
         page==="tasks" ? <Tasks data={data} toggle={toggleTask} open={setModal} remove={remove}/> :
         page==="calendar" ? <Calendar data={data} open={setModal}/> :
         page==="temporary" ? <Temporary data={data} open={setModal} remove={remove} update={update}/> :
-        page==="health" ? <Health data={data} update={update}/> :
+        page==="health" ? <Health data={data} update={update} notify={notify}/> :
         page==="weight" ? <Weight data={data} open={setModal}/> :
         page==="finance" ? <Finance data={data} income={monthFinance.income} expense={monthFinance.expense} balance={monthFinance.balance} monthKey={monthKey} open={setModal} remove={remove}/> :
         page==="growth" ? <Growth data={data} open={setModal} remove={remove} update={update}/> :
         page==="emotion" ? <Emotion data={data} open={setModal}/> :
         page==="weekly" ? <Weekly data={data} update={update} exportMd={exportMarkdown}/> :
         page==="trends" ? <Trends data={data}/> :
-        <SettingsPage data={data} theme={theme} setTheme={setTheme} font={font} setFont={setFont} exportJson={exportJson} importFile={importFile} reset={()=>{if(confirm("确定清空全部数据吗？建议先导出备份，此操作无法撤销。"))setData({...seedData,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()})}}/>}
+        <SettingsPage data={data} update={update} theme={theme} setTheme={setTheme} font={font} setFont={setFont} exportJson={exportJson} importFile={importFile} reset={()=>{if(confirm("确定清空全部数据吗？建议先导出备份，此操作无法撤销。"))setData({...seedData,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()})}}/>}
       </div>
     </main>
     <nav className="bottom-nav">
-      {[["today","今日",Home],["calendar","日程",CalendarDays],["temporary","记录",Plus],["growth","成长",BookOpen],["settings","我的",UserRound]].map(([id,label,Icon])=><button key={id as string} className={page===id?"active":""} onClick={()=>setPage(id as Page)}><Icon size={21}/><span>{label as string}</span></button>)}
+      {[["today","今日",Home],["calendar","日历",CalendarDays],["temporary","记录",Plus],["health","健康",Activity],["settings","我的",UserRound]].map(([id,label,Icon])=><button key={id as string} className={page===id?"active":""} onClick={()=>setPage(id as Page)}><Icon size={21}/><span>{label as string}</span></button>)}
     </nav>
     {mobileMenu&&<div className="drawer-backdrop" onClick={()=>setMobileMenu(false)}><div className="drawer" onClick={e=>e.stopPropagation()}><div className="drawer-title"><b>全部功能</b><button className="icon" onClick={()=>setMobileMenu(false)}><X/></button></div>{nav.map(n=><button key={n.id} onClick={()=>{setPage(n.id);setMobileMenu(false)}}><n.icon size={19}/>{n.label}</button>)}</div></div>}
-    {modal&&<Editor modal={modal} close={()=>setModal(null)} update={update} notify={notify} timer={timer} setTimer={setTimer}/>}
+    {modal&&<Editor modal={modal} close={()=>setModal(null)} update={update} notify={notify} timer={timer} setTimer={setTimer} workspaceName={workspaceName}/>}
     {toast&&<div className="toast" role="status" aria-live="polite"><Check size={17}/>{toast}</div>}
   </div>;
 }
@@ -141,8 +146,20 @@ export default function HomePage() {
 function Today({data,completed,todayExpense,todayTransactions,today,open,go,toggle,update}:{data:WorkspaceData;completed:number;todayExpense:number;todayTransactions:number;today:string;open:(m:Modal)=>void;go:(p:Page)=>void;toggle:(id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){
   const main=data.tasks.find(t=>t.important) || data.tasks[0];
   const hasTodayHealth=data.health.date===localDateKey();
-  return <><section className="hello"><div><span className="eyebrow">{today}</span><h2>你好，今天想从哪件小事开始？</h2><p>按自己的节奏来，先做好此刻最重要的一件事。</p></div><div className="status-select"><label>今日状态</label><select value={data.status} onChange={e=>update(d=>({...d,status:e.target.value}))}><option value="">选择今天的状态</option><option>精力正常</option><option>状态很好</option><option>有点疲惫</option><option>情绪波动</option><option>很需要休息</option></select></div></section>
+  const todayDrinks=data.drinks.filter(x=>x.date===localDateKey());
+  return <><section className="hello"><div><span className="eyebrow">{today}</span><h2>{data.profile.name.trim()?`${data.profile.name.trim()}，今天想从哪件小事开始？`:"今天想从哪件小事开始？"}</h2><p>按自己的节奏来，先做好此刻最重要的一件事。</p></div><div className="status-select"><label>今日状态</label><select value={data.status} onChange={e=>update(d=>({...d,status:e.target.value}))}><option value="">选择今天的状态</option><option>精力正常</option><option>状态很好</option><option>有点疲惫</option><option>情绪波动</option><option>很需要休息</option></select></div></section>
   {(data.status==="情绪波动"||data.status==="很需要休息")&&<div className="gentle-banner"><Moon size={20}/><div><b>要进入低精力模式吗？</b><p>今天先维持基本运转，不要求高产。其他任务可以先放进“今天可以不做”。</p></div><button className="text-btn">调整今天</button></div>}
+  <section className="today-life-card">
+    <div className="today-life-head"><div><span className="eyebrow">今日生活记录</span><h3>今天做了什么，就从这里记下来</h3><p>{todayDrinks.length?`已记录 ${todayDrinks.length} 杯饮品`:"饮品、睡眠、吃饭、穿搭和身体状态都能快速记录"}</p></div><button className="text-btn" onClick={()=>go("health")}>查看全部<ChevronRight size={15}/></button></div>
+    <div className="life-actions">
+      <button className="drink-action" onClick={()=>open("drink")}><Camera size={19}/><span>拍饮品</span></button>
+      <button onClick={()=>go("health")}><Moon size={19}/><span>睡眠饮食</span></button>
+      <button onClick={()=>open("outfit")}><Shirt size={19}/><span>今日穿搭</span></button>
+      <button onClick={()=>open("weight")}><BarChart3 size={19}/><span>记录体重</span></button>
+      <button onClick={()=>open("period")}><Flower2 size={19}/><span>姨妈周期</span></button>
+    </div>
+    {todayDrinks.some(x=>x.photo&&x.sticker)&&<div className="today-stickers">{todayDrinks.filter(x=>x.photo&&x.sticker).slice(0,5).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</div>}
+  </section>
   <section className="summary-grid">
     <Summary icon={ListTodo} title="今日待办" value={`${completed}/${data.tasks.length}`} note={main?.title||"还没有任务"} progress={data.tasks.length?completed/data.tasks.length:0} onClick={()=>go("tasks")}/>
     <Summary icon={CircleDollarSign} title="今日支出" value={`¥${todayExpense.toFixed(2)}`} note={`${todayTransactions} 笔今日记录`} action="快速记一笔" onAction={()=>open("expense")}/>
@@ -151,18 +168,24 @@ function Today({data,completed,todayExpense,todayTransactions,today,open,go,togg
   </section>
   {main&&<section className="focus-card"><div className="focus-top"><div><span className="eyebrow">今日最重要任务</span><h2>{main.title}</h2></div><span className="duration"><Clock3 size={16}/>{main.minutes} 分钟</span></div><div className="focus-details"><div><span>具体下一步</span><p>{main.next}</p></div><div><span>完成标准</span><p>{main.standard}</p></div></div><div className="focus-actions"><button className="primary" onClick={()=>open("focus")}><Play size={17}/>开始专注</button><button className="secondary" onClick={()=>toggle(main.id)}>{main.done?"恢复任务":"标记完成"}</button></div></section>}
   <section className="two-col"><div className="panel"><div className="panel-head"><div><span className="eyebrow">时间轴</span><h3>接下来的安排</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{data.schedule.length?<div className="timeline">{data.schedule.map((x,i)=><div className="time-row" key={x.time}><time>{x.time}</time><span className={i===0?"dot current":"dot"}/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="给今天留一点空间，或添加第一项安排。"/>}</div>
-  <div className="panel"><div className="panel-head"><div><span className="eyebrow">快速操作</span><h3>现在想记录什么？</h3></div></div><div className="quick-grid">{[["添加任务",ListTodo,"task"],["记一笔",WalletCards,"expense"],["临时任务",NotebookPen,"temporary"],["情绪暂停",HeartHandshake,"emotion"],["记录穿搭",Shirt,"outfit"],["添加笔记",BookOpen,"note"]].map(([label,Icon,m])=><button key={label as string} onClick={()=>open(m as Modal)}><Icon size={20}/><span>{label as string}</span></button>)}</div></div></section></>
+  <div className="panel"><div className="panel-head"><div><span className="eyebrow">快速操作</span><h3>现在想记录什么？</h3></div></div><div className="quick-grid">{[["记录饮品",CupSoda,"drink"],["添加任务",ListTodo,"task"],["记一笔",WalletCards,"expense"],["临时任务",NotebookPen,"temporary"],["记录穿搭",Shirt,"outfit"],["添加笔记",BookOpen,"note"]].map(([label,Icon,m])=><button key={label as string} onClick={()=>open(m as Modal)}><Icon size={20}/><span>{label as string}</span></button>)}</div></div></section></>
 }
 
 function Summary({icon:Icon,title,value,note,progress,action,onAction,onClick}:{icon:typeof Home;title:string;value:string;note:string;progress?:number;action?:string;onAction?:()=>void;onClick?:()=>void}){return <article className="summary-card" onClick={onClick}><div className="summary-icon"><Icon size={18}/></div><span>{title}</span><strong>{value}</strong><p>{note}</p>{progress!==undefined&&<div className="progress" aria-label={`完成进度${Math.round(progress*100)}%`}><i style={{width:`${progress*100}%`}}/></div>}{action&&<button className="text-btn" onClick={e=>{e.stopPropagation();onAction?.()}}>{action}<Plus size={15}/></button>}</article>}
 
 function Tasks({data,toggle,open,remove}:{data:WorkspaceData;toggle:(id:string)=>void;open:(m:Modal)=>void;remove:(k:"tasks",id:string)=>void}){return <section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">今日看板</span><h2>{data.tasks.filter(t=>t.done).length}/{data.tasks.length} 项已完成</h2><p>预计 {data.tasks.reduce((s,t)=>s+t.minutes,0)} 分钟</p></div><button className="primary" onClick={()=>open("task")}><Plus size={17}/>添加任务</button></div><div className="task-list">{data.tasks.map(t=><div className="task-row" key={t.id}><button className={t.done?"check done":"check"} aria-label={t.done?"恢复任务":"完成任务"} onClick={()=>toggle(t.id)}>{t.done&&<Check size={15}/>}</button><div className={t.done?"task-main completed":"task-main"}><b>{t.title}</b><p>{t.next}</p><div className="chips"><span>{t.category}</span><span>{t.priority}</span><span><Clock3 size={12}/>{t.minutes} 分钟</span></div></div><button className="icon danger" onClick={()=>remove("tasks",t.id)} aria-label="删除任务"><Trash2 size={17}/></button></div>)}</div></section>}
 
-function Calendar({data,open}:{data:WorkspaceData;open:(m:Modal)=>void}){const days=Array.from({length:35},(_,i)=>i-2);return <><section className="panel"><div className="panel-head"><div><span className="eyebrow">月视图</span><h2>{new Date().getFullYear()} 年 {new Date().getMonth()+1} 月</h2></div><button className="primary" onClick={()=>open("task")}><Plus size={17}/>添加日程</button></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{days.map((d,i)=><button key={i} className={d===new Date().getDate()?"today-day":d<1||d>31?"muted-day":""}>{d<1?30+d:d>31?d-31:d}{d===new Date().getDate()&&<small>今天</small>}</button>)}</div><div className="legend"><span>● 有任务</span><span>✓ 全部完成</span><span>◆ 临时任务</span></div></section><section className="panel"><div className="panel-head"><h3>今天的日程</h3></div>{data.schedule.length?<div className="timeline">{data.schedule.map(x=><div className="time-row" key={x.time}><time>{x.time}</time><span className="dot"/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="添加第一项日程后，它会显示在这里。"/>}</section></>}
+function Calendar({data,open}:{data:WorkspaceData;open:(m:Modal)=>void}){
+  const now=new Date(),year=now.getFullYear(),month=now.getMonth(),today=localDateKey(now);
+  const cells=buildMonthCalendar(year,month);
+  const drinksByDate=new Map<string,WorkspaceData["drinks"]>();
+  for(const drink of data.drinks){const list=drinksByDate.get(drink.date)||[];list.push(drink);drinksByDate.set(drink.date,list)}
+  return <><section className="panel calendar-panel"><div className="panel-head"><div><span className="eyebrow">月视图</span><h2>{year} 年 {month+1} 月</h2><p>拍下饮品后，识别出的杯子贴纸会出现在当天。</p></div><div className="calendar-actions"><button className="secondary" onClick={()=>open("drink")}><Camera size={17}/>拍今天的饮品</button><button className="primary" onClick={()=>open("task")}><Plus size={17}/>添加日程</button></div></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const drinks=drinksByDate.get(cell.dateKey)||[],stickers=drinks.filter(x=>x.photo&&x.sticker);return <button key={cell.dateKey} className={`${cell.dateKey===today?"today-day ":""}${!cell.inMonth?"muted-day ":""}${stickers.length?"has-sticker":""}`} title={`${cell.dateKey}${drinks.length?`，${drinks.length} 条饮品记录`:""}`} onClick={()=>cell.dateKey===today&&open("drink")}><span className="calendar-day-number">{cell.day}</span>{cell.dateKey===today&&<small>今天</small>}{stickers.length?<span className="calendar-stickers">{stickers.slice(0,2).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</span>:drinks.length?<i/>:null}</button>})}</div><div className="legend"><span>☕ 杯子贴纸：当天有饮品照片</span><span>点击“今天”可继续拍照记录</span></div></section><section className="panel"><div className="panel-head"><h3>今天的日程</h3></div>{data.schedule.length?<div className="timeline">{data.schedule.map(x=><div className="time-row" key={x.time}><time>{x.time}</time><span className="dot"/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="添加第一项日程后，它会显示在这里。"/>}</section></>
+}
 
 function Temporary({data,open,remove,update}:{data:WorkspaceData;open:(m:Modal)=>void;remove:(k:"temporary",id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){return <section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">任务收件箱</span><h2>先记下来，稍后安排</h2></div><button className="primary" onClick={()=>open("temporary")}><Plus size={17}/>添加临时任务</button></div>{data.temporary.length?data.temporary.map(t=><div className="task-row" key={t.id}><button className={t.done?"check done":"check"} onClick={()=>update(d=>({...d,temporary:d.temporary.map(x=>x.id===t.id?{...x,done:!x.done}:x)}))}>{t.done&&<Check size={15}/>}</button><div className="task-main"><b>{t.title}</b><p>截止：{t.deadline||"无明确日期"} · {t.priority}</p></div><button className="secondary small" onClick={()=>update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:t.title,next:"确认下一步并开始处理",standard:"任务已处理完成",minutes:30,category:"其他",priority:t.priority,done:false}],temporary:d.temporary.filter(x=>x.id!==t.id)}))}>安排到今日</button><button className="icon danger" onClick={()=>remove("temporary",t.id)}><Trash2 size={17}/></button></div>):<Empty title="收件箱是空的" note="临时出现的事情，可以先放在这里。" action="添加第一项" onClick={()=>open("temporary")}/>}</section>}
 
-function Health({data,update}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){
+function Health({data,update,notify}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(message:string)=>void}){
   const [healthModal,setHealthModal]=useState<Modal>(null);
   const today=localDateKey();
   const todayHealth=data.health.date===today?data.health:{date:today,sleep:null,water:0,meals:null};
@@ -184,7 +207,7 @@ function Health({data,update}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>W
       <button className="secondary" onClick={()=>setHealthModal("weight")}><BarChart3 size={17}/>{lastWeight?"再次记录体重":"记录体重"}</button>
     </div></div>
     <div className="panel"><div className="panel-head"><div><span className="eyebrow">每日饮品</span><h3>今天喝了什么？</h3></div><button className="primary" onClick={()=>setHealthModal("drink")}><Camera size={17}/>拍照记录</button></div>
-      {todayDrinks.length?<div className="drink-grid">{todayDrinks.map(x=><article className="drink-card" key={x.id}>{x.photo?<img src={x.photo} alt={`${x.name}的照片`}/>:<div className="drink-placeholder"><CupSoda/></div>}<div><span>{x.type}</span><b>{x.name}</b><small>{x.time}{x.amount?` · ${x.amount}ml`:""}</small></div></article>)}</div>:<Empty title="今天还没有饮品记录" note="可以拍照或从相册选择，记录咖啡、茶、牛奶、果汁或其他饮品。" action="记录第一杯" onClick={()=>setHealthModal("drink")}/>}
+      {todayDrinks.length?<div className="drink-grid">{todayDrinks.map(x=><article className={`drink-card${x.sticker?" sticker-card":""}`} key={x.id}>{x.photo?<img src={x.photo} alt={`${x.name}的照片`}/>:<div className="drink-placeholder"><CupSoda/></div>}<div><span>{x.type}</span><b>{x.name}</b><small>{x.time}{x.amount?` · ${x.amount}ml`:""}</small></div></article>)}</div>:<Empty title="今天还没有饮品记录" note="可以拍照或从相册选择，记录咖啡、茶、牛奶、果汁或其他饮品。" action="记录第一杯" onClick={()=>setHealthModal("drink")}/>}
     </div>
   </section>
   <section className="panel outfit-panel"><div className="panel-head"><div><span className="eyebrow">每日穿搭</span><h2>今天穿了什么？</h2><p>留下当天喜欢的搭配，慢慢形成自己的穿搭相册。</p></div><button className="primary" onClick={()=>setHealthModal("outfit")}><Shirt size={17}/>记录今日穿搭</button></div>
@@ -194,7 +217,7 @@ function Health({data,update}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>W
     {data.periods.length?<div className="period-history">{[...data.periods].reverse().map(x=><div className="period-row" key={x.id}><div className="period-day"><Flower2/><b>{x.startDate.slice(5)}</b></div><div><b>{x.startDate} 至 {x.endDate||"进行中"}</b><p>经量：{x.flow||"未记录"}{x.note?` · ${x.note}`:""}</p></div></div>)}</div>:<Empty title="还没有周期记录" note="记录每次开始和结束日期，之后可查看自己的周期变化。" action="添加第一次记录" onClick={()=>setHealthModal("period")}/>}
   </section>
   <section className="panel suggestion"><span className="eyebrow">温和提醒</span><h3>健康记录是为了更了解自己</h3><p className="medical-note">周期预测仅根据历史日期估算，不能用于避孕或医疗判断。若经期异常、疼痛明显或身体持续不适，请咨询正规医疗专业人员。</p></section>
-  {healthModal&&<Editor modal={healthModal} close={()=>setHealthModal(null)} update={update} notify={()=>setHealthModal(null)} timer={{running:false,end:0,remaining:1500}} setTimer={()=>{}}/>}
+  {healthModal&&<Editor modal={healthModal} close={()=>setHealthModal(null)} update={update} notify={notify} timer={{running:false,end:0,remaining:1500}} setTimer={()=>{}} workspaceName={data.profile.name.trim()?`${data.profile.name.trim()}的工作台`:"我的工作台"}/>}
   </>}
 function Metric({label,value,note}:{label:string;value:string;note:string}){return <div className="metric"><span>{label}</span><strong>{value}</strong><p>{note}</p></div>}
 
@@ -221,7 +244,10 @@ function Weekly({data,update,exportMd}:{data:WorkspaceData;update:(f:(d:Workspac
 
 function Trends({data}:{data:WorkspaceData}){const hasData=data.tasks.length+data.transactions.length+data.notes.length+data.weights.length+data.drinks.length+data.outfits.length+data.periods.length>0;return <section className="panel"><div className="panel-head"><div><span className="eyebrow">历史趋势</span><h2>生活节奏总览</h2></div><div className="seg compact"><button className="active">7 天</button><button>30 天</button><button>12 周</button></div></div>{hasData?<><div className="simple-trend-summary"><Metric label="任务完成" value={`${data.tasks.filter(t=>t.done).length}/${data.tasks.length}`} note="按完成数量计算"/><Metric label="生活与健康" value={`${data.drinks.length+data.outfits.length+data.weights.length+data.periods.length} 条`} note="饮品、穿搭、体重与周期"/><Metric label="学习笔记" value={`${data.notes.length} 条`} note="自己的输入与行动"/></div><p className="trend-text">继续记录一段时间后，这里会生成更完整的 7 天、30 天和 12 周趋势。</p></>:<Empty title="还没有可分析的数据" note="从任务、健康、记账或学习模块开始记录，趋势会慢慢形成。"/>}</section>}
 
-function SettingsPage({data,theme,setTheme,font,setFont,exportJson,importFile,reset}:{data:WorkspaceData;theme:string;setTheme:(x:"light"|"dark")=>void;font:FontChoice;setFont:(x:FontChoice)=>void;exportJson:()=>void;importFile:(f:File)=>void;reset:()=>void}){return <><section className="panel settings-section install-panel"><img className="settings-logo" src={`${basePath}/icon.png`} alt="橙子成长工作台图标"/><div><span className="eyebrow">像 App 一样使用</span><h2>安装到手机桌面</h2><p><b>iPhone：</b>用 Safari 打开本页 → 点击分享按钮 → 添加到主屏幕。</p><p><b>Android：</b>用 Chrome 打开本页 → 点击右上角菜单 → 安装应用。</p><InstallButton/></div></section><section className="panel settings-section"><h2>外观与字体</h2><div className="setting-row"><div><b>显示模式</b><p>选择舒适的阅读环境</p></div><div className="seg compact"><button className={theme==="light"?"active":""} onClick={()=>setTheme("light")}>浅色</button><button className={theme==="dark"?"active":""} onClick={()=>setTheme("dark")}>深色</button></div></div><div className="setting-row font-setting"><div><b>手机字体</b><p>选择后立即生效，并保存在本设备</p></div><div className="seg compact"><button className={font==="cute"?"active":""} onClick={()=>setFont("cute")}>可爱手写</button><button className={font==="system"?"active":""} onClick={()=>setFont("system")}>手机默认</button><button className={font==="rounded"?"active":""} onClick={()=>setFont("rounded")}>清爽圆体</button></div></div><div className="setting-row"><div><b>默认专注时长</b><p>开始专注时自动选择</p></div><span>25 分钟</span></div></section><section className="panel settings-section"><h2>数据与备份</h2><div className="privacy-note">当前数据默认仅保存在本设备中。清除应用或浏览器数据可能导致记录丢失，请定期导出备份。</div><div className="data-actions"><button className="secondary" onClick={exportJson}><Download size={17}/>导出 JSON 备份</button><label className="secondary file-btn"><Upload size={17}/>导入 JSON<input type="file" accept=".json" onChange={e=>e.target.files?.[0]&&importFile(e.target.files[0])}/></label><button className="secondary danger-outline" onClick={reset}><Trash2 size={17}/>清空全部数据</button></div><p className="muted">数据版本 {data.schemaVersion} · 最近更新 {new Date(data.updatedAt).toLocaleString("zh-CN")}</p></section></>}
+function SettingsPage({data,update,theme,setTheme,font,setFont,exportJson,importFile,reset}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;theme:string;setTheme:(x:"light"|"dark")=>void;font:FontChoice;setFont:(x:FontChoice)=>void;exportJson:()=>void;importFile:(f:File)=>void;reset:()=>void}){
+  const previewName=data.profile.name.trim()?`${data.profile.name.trim()}的工作台`:"我的工作台";
+  return <><section className="panel settings-section profile-panel"><div><span className="eyebrow">专属名称</span><h2>给自己的工作台取个名字</h2><p>每个人都可以在自己的手机上修改，只影响本机显示。</p></div><div className="profile-name-editor"><label>我的名字或昵称<input maxLength={12} value={data.profile.name} onChange={e=>update(d=>({...d,profile:{name:e.target.value.slice(0,12)}}))} placeholder="例如：小红、紫妍"/></label><div className="name-preview"><img src={`${basePath}/icon.png`} alt="工作台图标"/><div><span>修改后显示为</span><b>{previewName}</b></div></div></div></section><section className="panel settings-section install-panel"><img className="settings-logo" src={`${basePath}/icon.png`} alt="橙子成长工作台图标"/><div><span className="eyebrow">像 App 一样使用</span><h2>安装到手机桌面</h2><p><b>iPhone：</b>用 Safari 打开本页 → 点击分享按钮 → 添加到主屏幕。</p><p><b>Android：</b>用 Chrome 打开本页 → 点击右上角菜单 → 安装应用。</p><InstallButton/></div></section><section className="panel settings-section"><h2>外观与字体</h2><div className="setting-row"><div><b>显示模式</b><p>选择舒适的阅读环境</p></div><div className="seg compact"><button className={theme==="light"?"active":""} onClick={()=>setTheme("light")}>浅色</button><button className={theme==="dark"?"active":""} onClick={()=>setTheme("dark")}>深色</button></div></div><div className="setting-row font-setting"><div><b>手机字体</b><p>选择后立即生效，并保存在本设备</p></div><div className="seg compact"><button className={font==="cute"?"active":""} onClick={()=>setFont("cute")}>可爱手写</button><button className={font==="system"?"active":""} onClick={()=>setFont("system")}>手机默认</button><button className={font==="rounded"?"active":""} onClick={()=>setFont("rounded")}>清爽圆体</button></div></div><div className="setting-row"><div><b>默认专注时长</b><p>开始专注时自动选择</p></div><span>25 分钟</span></div></section><section className="panel settings-section"><h2>数据与备份</h2><div className="privacy-note">当前数据默认仅保存在本设备中。清除应用或浏览器数据可能导致记录丢失，请定期导出备份。</div><div className="data-actions"><button className="secondary" onClick={exportJson}><Download size={17}/>导出 JSON 备份</button><label className="secondary file-btn"><Upload size={17}/>导入 JSON<input type="file" accept=".json" onChange={e=>e.target.files?.[0]&&importFile(e.target.files[0])}/></label><button className="secondary danger-outline" onClick={reset}><Trash2 size={17}/>清空全部数据</button></div><p className="muted">数据版本 {data.schemaVersion} · 最近更新 {new Date(data.updatedAt).toLocaleString("zh-CN")}</p></section></>
+}
 
 type InstallPromptEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:"accepted"|"dismissed"}>};
 function InstallButton(){
@@ -235,38 +261,92 @@ function SearchResults({data,query,go}:{data:WorkspaceData;query:string;go:(p:Pa
 
 function Empty({title,note,action,onClick}:{title:string;note:string;action?:string;onClick?:()=>void}){return <div className="empty"><Sparkles/><h3>{title}</h3><p>{note}</p>{action&&<button className="secondary" onClick={onClick}>{action}</button>}</div>}
 
-async function processLocalPhoto(file:File,cartoon:boolean):Promise<string>{
-  const source=await new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=reject;img.src=url});
-  const max=cartoon?760:1000,scale=Math.min(1,max/Math.max(source.naturalWidth,source.naturalHeight));
-  const w=Math.max(1,Math.round(source.naturalWidth*scale)),h=Math.max(1,Math.round(source.naturalHeight*scale));
-  const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
-  const ctx=canvas.getContext("2d",{willReadFrequently:cartoon});if(!ctx)throw new Error("canvas");
-  ctx.drawImage(source,0,0,w,h);
-  if(!cartoon)return canvas.toDataURL("image/jpeg",.82);
-  const image=ctx.getImageData(0,0,w,h),pixels=image.data,gray=new Uint8Array(w*h);
-  for(let i=0,p=0;i<pixels.length;i+=4,p++)gray[p]=(pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114)|0;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=y*w+x,i=p*4;let r=(pixels[i]-128)*1.12+128,g=(pixels[i+1]-128)*1.12+128,b=(pixels[i+2]-128)*1.12+128;r=Math.round(Math.max(0,Math.min(255,r))/36)*36;g=Math.round(Math.max(0,Math.min(255,g))/36)*36;b=Math.round(Math.max(0,Math.min(255,b))/36)*36;const edge=Math.abs(gray[p-1]-gray[p+1])+Math.abs(gray[p-w]-gray[p+w]);if(edge>72){r*=.5;g*=.5;b*=.5}pixels[i]=r;pixels[i+1]=g;pixels[i+2]=b}
-  ctx.putImageData(image,0,0);
-  const sticker=document.createElement("canvas"),pad=Math.max(12,Math.round(Math.min(w,h)*.025));sticker.width=w+pad*2;sticker.height=h+pad*2;
-  const out=sticker.getContext("2d");if(!out)throw new Error("canvas");
-  const radius=Math.max(18,Math.round(Math.min(w,h)*.05));out.fillStyle="#fffaf3";out.beginPath();out.roundRect(0,0,sticker.width,sticker.height,radius);out.fill();
-  out.save();out.beginPath();out.roundRect(pad,pad,w,h,Math.max(12,radius-pad/2));out.clip();out.drawImage(canvas,pad,pad);out.restore();
-  return sticker.toDataURL("image/webp",.84);
+async function loadPhoto(file:File):Promise<HTMLImageElement>{
+  return new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image"))};img.src=url});
 }
 
-function Editor({modal,close,update,notify,timer,setTimer}:{modal:Exclude<Modal,null>;close:()=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(x:string)=>void;timer:{running:boolean;end:number;remaining:number};setTimer:React.Dispatch<React.SetStateAction<{running:boolean;end:number;remaining:number}>>}){
+async function processLocalPhoto(file:File):Promise<string>{
+  const source=await loadPhoto(file);
+  const scale=Math.min(1,1000/Math.max(source.naturalWidth,source.naturalHeight));
+  const w=Math.max(1,Math.round(source.naturalWidth*scale)),h=Math.max(1,Math.round(source.naturalHeight*scale));
+  const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext("2d");if(!ctx)throw new Error("canvas");
+  ctx.drawImage(source,0,0,w,h);
+  return canvas.toDataURL("image/jpeg",.82);
+}
+
+type CupDetector={detect:(input:HTMLCanvasElement,maxNumBoxes?:number,minScore?:number)=>Promise<{bbox:[number,number,number,number];class:string;score:number}[]>};
+let cupDetectorPromise:Promise<CupDetector>|null=null;
+async function getCupDetector():Promise<CupDetector>{
+  if(!cupDetectorPromise)cupDetectorPromise=(async()=>{const [tf,coco]=await Promise.all([import("@tensorflow/tfjs"),import("@tensorflow-models/coco-ssd")]);await tf.ready();return coco.load({base:"lite_mobilenet_v2"})})();
+  return cupDetectorPromise;
+}
+
+async function processCupSticker(file:File):Promise<string>{
+  const source=await loadPhoto(file);
+  const detectScale=Math.min(1,640/Math.max(source.naturalWidth,source.naturalHeight));
+  const detectCanvas=document.createElement("canvas");
+  detectCanvas.width=Math.max(1,Math.round(source.naturalWidth*detectScale));detectCanvas.height=Math.max(1,Math.round(source.naturalHeight*detectScale));
+  const detectContext=detectCanvas.getContext("2d");if(!detectContext)throw new Error("canvas");
+  detectContext.drawImage(source,0,0,detectCanvas.width,detectCanvas.height);
+  const detector=await getCupDetector();
+  const cup=(await detector.detect(detectCanvas,10,.15)).filter(item=>item.class==="cup").sort((a,b)=>b.score-a.score)[0];
+  if(!cup)throw new Error("NO_CUP");
+
+  const [boxX,boxY,boxW,boxH]=cup.bbox,padX=boxW*.16,padY=boxH*.13;
+  const sx=Math.max(0,(boxX-padX)/detectScale),sy=Math.max(0,(boxY-padY)/detectScale);
+  const sw=Math.min(source.naturalWidth-sx,(boxW+padX*2)/detectScale),sh=Math.min(source.naturalHeight-sy,(boxH+padY*2)/detectScale);
+  const scale=Math.min(1,460/Math.max(sw,sh)),cropW=Math.max(1,Math.round(sw*scale)),cropH=Math.max(1,Math.round(sh*scale));
+  const canvas=document.createElement("canvas");canvas.width=cropW;canvas.height=cropH;
+  const ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)throw new Error("canvas");
+  ctx.drawImage(source,sx,sy,sw,sh,0,0,cropW,cropH);
+
+  const image=ctx.getImageData(0,0,cropW,cropH),pixels=image.data,gray=new Uint8Array(cropW*cropH),palette:number[][]=[];
+  const sample=(x:number,y:number)=>{const i=(y*cropW+x)*4;palette.push([pixels[i],pixels[i+1],pixels[i+2]])};
+  const stride=Math.max(2,Math.round(Math.min(cropW,cropH)/24));
+  for(let x=0;x<cropW;x+=stride){sample(x,0);sample(x,cropH-1)}
+  for(let y=stride;y<cropH-stride;y+=stride){sample(0,y);sample(cropW-1,y)}
+  for(let i=0,p=0;i<pixels.length;i+=4,p++)gray[p]=(pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114)|0;
+  for(let y=0;y<cropH;y++)for(let x=0;x<cropW;x++){
+    const p=y*cropW,i=p*4,sourceR=pixels[i],sourceG=pixels[i+1],sourceB=pixels[i+2];
+    let nearest=Infinity;
+    for(const color of palette){const dr=sourceR-color[0],dg=sourceG-color[1],db=sourceB-color[2];nearest=Math.min(nearest,dr*dr+dg*dg+db*db)}
+    const edge=x>0&&x<cropW-1&&y>0&&y<cropH-1?Math.abs(gray[p-1]-gray[p+1])+Math.abs(gray[p-cropW]-gray[p+cropW]):0;
+    const alpha=Math.max(0,Math.min(255,(Math.sqrt(nearest)-22)/38*255+edge*1.25));
+    let r=(sourceR-128)*1.14+128,g=(sourceG-128)*1.14+128,b=(sourceB-128)*1.14+128;
+    r=Math.round(Math.max(0,Math.min(255,r))/32)*32;g=Math.round(Math.max(0,Math.min(255,g))/32)*32;b=Math.round(Math.max(0,Math.min(255,b))/32)*32;
+    if(edge>72){r*=.55;g*=.55;b*=.55}
+    pixels[i]=r;pixels[i+1]=g;pixels[i+2]=b;pixels[i+3]=alpha;
+  }
+  ctx.putImageData(image,0,0);
+
+  const silhouette=document.createElement("canvas");silhouette.width=cropW;silhouette.height=cropH;
+  const silhouetteContext=silhouette.getContext("2d");if(!silhouetteContext)throw new Error("canvas");
+  const mask=silhouetteContext.createImageData(cropW,cropH);
+  for(let i=0;i<pixels.length;i+=4){mask.data[i]=255;mask.data[i+1]=252;mask.data[i+2]=246;mask.data[i+3]=pixels[i+3]}
+  silhouetteContext.putImageData(mask,0,0);
+  const sticker=document.createElement("canvas"),pad=Math.max(18,Math.round(Math.min(cropW,cropH)*.07));
+  sticker.width=cropW+pad*2;sticker.height=cropH+pad*2;
+  const out=sticker.getContext("2d");if(!out)throw new Error("canvas");
+  const outline=Math.max(4,Math.round(pad*.38));
+  for(let dy=-outline;dy<=outline;dy+=2)for(let dx=-outline;dx<=outline;dx+=2)if(dx*dx+dy*dy<=outline*outline)out.drawImage(silhouette,pad+dx,pad+dy);
+  out.drawImage(canvas,pad,pad);
+  return sticker.toDataURL("image/webp",.88);
+}
+
+function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的工作台"}:{modal:Exclude<Modal,null>;close:()=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(x:string)=>void;timer:{running:boolean;end:number;remaining:number};setTimer:React.Dispatch<React.SetStateAction<{running:boolean;end:number;remaining:number}>>;workspaceName?:string}){
   const [form,setForm]=useState<Record<string,string>>({});
   const [step,setStep]=useState(0);
   const [processing,setProcessing]=useState(false);
   const set=(k:string,v:string)=>setForm(f=>({...f,[k]:v}));
-  async function readPhoto(file:File|undefined,cartoon=false){if(!file)return;setProcessing(true);try{set("photo",await processLocalPhoto(file,cartoon))}catch{notify("照片处理失败，请换一张照片重试")}finally{setProcessing(false)}}
+  async function readPhoto(file:File|undefined,cupOnly=false){if(!file)return;setProcessing(true);set("photoError","");try{const photo=cupOnly?await processCupSticker(file):await processLocalPhoto(file);set("photo",photo);set("sticker",cupOnly?"true":"")}catch(error){const message=error instanceof Error&&error.message==="NO_CUP"?"没有识别到杯子，请让杯子单独、完整地出现在画面中。":"杯子识别暂时失败，请检查网络或换一张照片重试。";set("photo","");set("sticker","");set("photoError",message);notify(message)}finally{setProcessing(false)}}
   function save(){
     const today=localDateKey();
     if(modal==="task"){if(!form.title)return notify("请填写任务名称");const minutes=Math.min(600,Math.max(5,+form.minutes||30));update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:form.title,next:form.next||"明确下一步并开始",standard:form.standard||"达到预期结果",minutes,category:form.category||"其他",priority:form.priority||"普通",done:false}]}));}
     if(modal==="temporary"){if(!form.title)return notify("请填写任务名称");update(d=>({...d,temporary:[...d.temporary,{id:crypto.randomUUID(),title:form.title,deadline:form.deadline||"",priority:form.priority||"普通",done:false}]}));}
     if(modal==="expense"){const amount=normalizeMoney(form.amount||0);if(amount<=0)return notify("金额必须大于 0");update(d=>({...d,transactions:[{id:crypto.randomUUID(),amount,type:form.type||"支出",category:form.category||"餐饮",note:form.note||"",date:today},...d.transactions]}));}
     if(modal==="weight"){const value=normalizeMoney(form.value||0);if(value<=0||value>500)return notify("请输入正确体重");update(d=>({...d,weights:[...d.weights,{id:crypto.randomUUID(),value,date:today}].sort((a,b)=>a.date.localeCompare(b.date))}));}
-    if(modal==="drink"){const amount=form.amount?Math.round(+form.amount):null;if(!form.name)return notify("请填写饮品名称");if(amount!==null&&(!Number.isFinite(amount)||amount<=0))return notify("容量必须大于 0");update(d=>({...d,drinks:[{id:crypto.randomUUID(),name:form.name,type:form.type||"咖啡",amount,photo:form.photo||"",date:today,time:new Date().toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"})},...d.drinks]}));}
+    if(modal==="drink"){const amount=form.amount?Math.round(+form.amount):null;if(!form.name)return notify("请填写饮品名称");if(amount!==null&&(!Number.isFinite(amount)||amount<=0))return notify("容量必须大于 0");update(d=>({...d,drinks:[{id:crypto.randomUUID(),name:form.name,type:form.type||"咖啡",amount,photo:form.photo||"",sticker:form.sticker==="true",date:today,time:new Date().toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"})},...d.drinks]}));}
     if(modal==="outfit"){if(!form.photo)return notify("请先上传一张穿搭照片");update(d=>({...d,outfits:[{id:crypto.randomUUID(),photo:form.photo,date:today,occasion:form.occasion||"",mood:form.mood||"",note:form.note||""},...d.outfits]}));}
     if(modal==="period"){if(!form.startDate)return notify("请选择开始日期");if(form.endDate&&form.endDate<form.startDate)return notify("结束日期不能早于开始日期");update(d=>({...d,periods:[...d.periods,{id:crypto.randomUUID(),startDate:form.startDate,endDate:form.endDate||"",flow:form.flow||"",note:form.note||""}].sort((a,b)=>a.startDate.localeCompare(b.startDate))}));}
     if(modal==="note"){if(!form.title)return notify("请填写标题");update(d=>({...d,notes:[{id:crypto.randomUUID(),type:form.type||"灵感",title:form.title,content:form.content||"",action:form.action||""},...d.notes]}));}
@@ -275,12 +355,12 @@ function Editor({modal,close,update,notify,timer,setTimer}:{modal:Exclude<Modal,
   if(modal==="focus"){const mm=String(Math.floor(timer.remaining/60)).padStart(2,"0"),ss=String(timer.remaining%60).padStart(2,"0");return <div className="modal-backdrop"><div className="modal focus-modal"><button className="modal-close" onClick={close}><X/></button><span className="eyebrow">专注当下</span><h2>完成一轮 AI 训练测试</h2><div className="timer-display">{mm}:{ss}</div><p>情绪可以暂时存在，但我先完成手上的这一小步。</p><div className="timer-presets">{[15,25,45].map(v=><button onClick={()=>setTimer({running:false,end:0,remaining:v*60})} key={v}>{v} 分钟</button>)}</div><div className="focus-actions"><button className="primary large" onClick={()=>setTimer(t=>t.running?{...t,running:false}:{...t,running:true,end:Date.now()+t.remaining*1000})}>{timer.running?<><Pause/>暂停</>:<><Play/>开始</>}</button><button className="secondary" onClick={()=>{setTimer({running:false,end:0,remaining:25*60});update(d=>({...d,focusSessions:d.focusSessions+1}));notify("本轮专注已记录");close();}}>提前结束并记录</button></div></div></div>}
   if(modal==="emotion"){const prompts=[["我看到的 5 样东西","慢慢环顾四周，把看到的东西写下来"],["我听到的 3 种声音","注意远近不同的声音"],["身体接触到的 2 个位置","例如双脚接触地面、背部接触椅背"],["我现在准备完成的 1 件事","只选一件很小、可以马上开始的事"]];return <div className="modal-backdrop"><div className="modal emotion-modal"><button className="modal-close" onClick={close}><X/></button><span className="eyebrow">5 · 3 · 2 · 1 落地练习</span><div className="step-indicator">{prompts.map((_,i)=><i className={i<=step?"active":""} key={i}/>)}</div><h2>{prompts[step][0]}</h2><p>{prompts[step][1]}</p><textarea autoFocus value={form[`s${step}`]||""} onChange={e=>set(`s${step}`,e.target.value)} placeholder="写在这里…"/><button className="primary full" onClick={()=>step<3?setStep(step+1):(notify("我已经回到此刻。现在先做眼前这一件事。"),close())}>{step<3?"下一步":"完成练习"}</button></div></div>}
   const titles:{[K in Exclude<Modal,null|"focus"|"emotion">]:string}={task:"添加今日任务",expense:"快速记一笔",temporary:"添加临时任务",weight:"记录体重",drink:"记录每日饮品",outfit:"记录今日穿搭",period:"记录姨妈周期",note:"添加学习笔记"};
-  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="modal form-modal"><button className="modal-close" onClick={close} aria-label="关闭"><X/></button><span className="eyebrow">橙子成长工作台</span><h2>{titles[modal as keyof typeof titles]}</h2>
+  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="modal form-modal"><button className="modal-close" onClick={close} aria-label="关闭"><X/></button><span className="eyebrow">{workspaceName}</span><h2>{titles[modal as keyof typeof titles]}</h2>
     {modal==="task"&&<><Field label="任务名称"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="例如：完成一轮 AI 训练测试"/></Field><div className="form-grid"><Field label="类型"><select onChange={e=>set("category",e.target.value)}><option>AI训练</option><option>提示词测试</option><option>素材整理</option><option>学习研究</option><option>生活事务</option><option>其他</option></select></Field><Field label="优先级"><select onChange={e=>set("priority",e.target.value)}><option>重要不紧急</option><option>紧急重要</option><option>普通</option><option>可延后</option></select></Field></div><Field label="预计时长（分钟）"><input type="number" min="5" value={form.minutes||"30"} onChange={e=>set("minutes",e.target.value)}/></Field><Field label="具体下一步"><textarea value={form.next||""} onChange={e=>set("next",e.target.value)} placeholder="15–30 分钟内能完成什么？"/></Field><Field label="完成标准"><textarea value={form.standard||""} onChange={e=>set("standard",e.target.value)} placeholder="怎样算完成？"/></Field></>}
     {modal==="temporary"&&<><Field label="任务名称"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="突然出现的事情"/></Field><Field label="截止日期（可选）"><input type="date" onChange={e=>set("deadline",e.target.value)}/></Field><Field label="优先级"><select onChange={e=>set("priority",e.target.value)}><option>普通</option><option>紧急重要</option><option>重要不紧急</option><option>可延后</option></select></Field></>}
     {modal==="expense"&&<><Field label="金额"><div className="money-input"><span>¥</span><input type="number" inputMode="decimal" min=".01" step=".01" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="0.00"/></div></Field><div className="form-grid"><Field label="类型"><select value={form.type||"支出"} onChange={e=>set("type",e.target.value)}><option>支出</option><option>收入</option><option>转账</option></select></Field><Field label="分类"><select value={form.category||"餐饮"} onChange={e=>set("category",e.target.value)}><option>餐饮</option><option>交通</option><option>购物</option><option>学习</option><option>医疗</option><option>工作</option><option>其他</option></select></Field></div><Field label="备注"><input value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder={form.type==="收入"?"这笔收入来自哪里？":form.type==="转账"?"转入或转出的账户":"这笔钱花在哪里？"}/></Field><div className="privacy-note">收入增加本月结余，支出减少本月结余；账户之间的转账不计入收支。</div></>}
     {modal==="weight"&&<><Field label="体重（kg）"><input autoFocus type="number" inputMode="decimal" step=".1" value={form.value||""} onChange={e=>set("value",e.target.value)} placeholder="例如 62.5"/></Field><div className="privacy-note">体重只是身体状态的一项记录，不代表你的价值。每周记录一次就足够了。</div></>}
-    {modal==="drink"&&<><div className="photo-upload">{processing?<div className="photo-processing"><Sparkles/><b>正在变成卡通贴纸…</b><span>全部处理都在本机完成</span></div>:form.photo?<img src={form.photo} alt="饮品卡通贴纸预览"/>:<div><Camera size={28}/><b>添加一张饮品照片</b><span>上传后自动生成卡通贴纸</span></div>}</div><div className="photo-actions"><label className="secondary"><Camera size={17}/>打开相机<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label></div><div className="form-grid"><Field label="饮品名称"><input autoFocus value={form.name||""} onChange={e=>set("name",e.target.value)} placeholder="例如：燕麦拿铁"/></Field><Field label="饮品类型"><select onChange={e=>set("type",e.target.value)}><option>咖啡</option><option>茶</option><option>牛奶</option><option>果汁</option><option>气泡水</option><option>其他饮品</option></select></Field></div><Field label="大约容量（ml，可选）"><input type="number" inputMode="numeric" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="例如 350"/></Field><div className="cartoon-note"><CupSoda/><span>照片会在本机完成颜色简化、轮廓强化和贴纸白边，不会上传到服务器。</span></div></>}
+    {modal==="drink"&&<><div className={`photo-upload cup-sticker-preview${form.sticker==="true"?" ready":""}`}>{processing?<div className="photo-processing"><Sparkles/><b>正在识别杯子…</b><span>只提取杯子，不处理画面里的其他物品</span></div>:form.photo?<img src={form.photo} alt="杯子卡通贴纸预览"/>:<div><Camera size={28}/><b>添加一张饮品照片</b><span>让杯子单独、完整地出现在画面中</span></div>}</div>{form.photoError&&<div className="photo-error">{form.photoError}</div>}<div className="photo-actions"><label className="secondary"><Camera size={17}/>打开相机<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0],true)}/></label></div><div className="form-grid"><Field label="饮品名称"><input value={form.name||""} onChange={e=>set("name",e.target.value)} placeholder="例如：燕麦拿铁"/></Field><Field label="饮品类型"><select onChange={e=>set("type",e.target.value)}><option>咖啡</option><option>茶</option><option>牛奶</option><option>果汁</option><option>气泡水</option><option>其他饮品</option></select></Field></div><Field label="大约容量（ml，可选）"><input type="number" inputMode="numeric" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="例如 350"/></Field><div className="cartoon-note"><CupSoda/><span>首次使用需要联网加载杯子识别模型。照片不会上传；识别、透明背景、卡通轮廓和白边都在本机完成。</span></div></>}
     {modal==="outfit"&&<><div className="photo-upload outfit-preview">{processing?<div className="photo-processing"><Sparkles/><b>正在整理照片…</b></div>:form.photo?<img src={form.photo} alt="今日穿搭预览"/>:<div><Shirt size={28}/><b>上传今日穿搭</b><span>保留照片原貌，用 Lookbook 卡片展示</span></div>}</div><div className="photo-actions"><label className="secondary"><Camera size={17}/>拍摄穿搭<input type="file" accept="image/*" capture="environment" onChange={e=>readPhoto(e.target.files?.[0])}/></label><label className="secondary"><Upload size={17}/>从相册选择<input type="file" accept="image/*" onChange={e=>readPhoto(e.target.files?.[0])}/></label></div><div className="form-grid"><Field label="场合（可选）"><select value={form.occasion||""} onChange={e=>set("occasion",e.target.value)}><option value="">日常</option><option>上班</option><option>约会</option><option>运动</option><option>旅行</option><option>居家</option></select></Field><Field label="今天的感觉"><select value={form.mood||""} onChange={e=>set("mood",e.target.value)}><option value="">暂不填写</option><option>舒服自在</option><option>清爽利落</option><option>温柔松弛</option><option>有点特别</option></select></Field></div><Field label="穿搭备注（可选）"><input value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder="例如：第一次尝试这组配色"/></Field></>}
     {modal==="period"&&<><div className="form-grid"><Field label="开始日期"><input autoFocus type="date" value={form.startDate||""} onChange={e=>set("startDate",e.target.value)}/></Field><Field label="结束日期（可稍后补充）"><input type="date" value={form.endDate||""} onChange={e=>set("endDate",e.target.value)}/></Field></div><Field label="经量感受（可选）"><select value={form.flow||""} onChange={e=>set("flow",e.target.value)}><option value="">暂不记录</option><option>较少</option><option>正常</option><option>较多</option></select></Field><Field label="身体感受或备注（可选）"><textarea value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder="例如：第一天有轻微腹痛，今天想多休息。"/></Field><div className="privacy-note">周期预测仅作个人记录参考，不能替代医疗建议或作为避孕依据。</div></>}
     {modal==="note"&&<><div className="form-grid"><Field label="类型"><select onChange={e=>set("type",e.target.value)}><option>灵感</option><option>播客笔记</option><option>读书笔记</option></select></Field><Field label="标题"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="笔记标题"/></Field></div><Field label="核心内容"><textarea value={form.content||""} onChange={e=>set("content",e.target.value)} placeholder="对我真正有用的内容…"/></Field><Field label="可以采取的行动"><input value={form.action||""} onChange={e=>set("action",e.target.value)} placeholder="可一键转为任务"/></Field></>}

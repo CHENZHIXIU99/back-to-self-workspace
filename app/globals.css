@@ -84,3 +84,25 @@ input,select,textarea{width:100%;max-width:100%}
   .outfit-grid,.drink-grid{grid-template-columns:1fr}
   .water-actions{grid-template-columns:1fr 1fr 1fr}
 }
+
+/* 首页直接记录生活、杯子贴纸日历与个性化名称 */
+.today-life-card{margin:0 0 18px;padding:19px 21px;border:1px solid #ead7bd;border-radius:18px;background:linear-gradient(135deg,#fff8ed 0%,#f7f2e8 55%,#eef3e8 100%);box-shadow:var(--shadow);position:relative;overflow:hidden}.dark .today-life-card{background:linear-gradient(135deg,#392f27,#2d322c);border-color:#4c4439}.today-life-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.today-life-head h3{margin:3px 0;font-size:18px}.today-life-head p{margin:0;color:var(--muted);font-size:11px}.life-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-top:15px}.life-actions button{min-height:68px;border:1px solid rgba(119,141,120,.24);border-radius:13px;background:rgba(255,255,255,.7);color:var(--sage-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:11px}.dark .life-actions button{background:rgba(31,37,33,.66);color:#d7e2d7}.life-actions .drink-action{background:#e7975c;color:#fff;border-color:#e7975c}.today-stickers{display:flex;align-items:flex-end;gap:3px;position:absolute;right:25px;bottom:-4px;pointer-events:none;opacity:.9}.today-stickers img{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(80,54,31,.16));transform:rotate(-5deg)}.today-stickers img:nth-child(even){transform:rotate(6deg)}
+
+.calendar-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.calendar-grid button{overflow:visible}.calendar-day-number{position:relative;z-index:2}.calendar-stickers{position:absolute;inset:18px 2px 1px;display:flex;align-items:flex-end;justify-content:center;gap:-3px;pointer-events:none}.calendar-stickers img{width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(74,57,39,.2));transform:rotate(-7deg)}.calendar-stickers img+img{margin-left:-10px;transform:rotate(8deg)}.calendar-grid .has-sticker{background:#fff8ed}.dark .calendar-grid .has-sticker{background:#342f28}.calendar-grid .has-sticker small{position:absolute;right:4px;top:3px}.calendar-panel .legend{justify-content:space-between;flex-wrap:wrap}
+
+.drink-card.sticker-card{background:linear-gradient(145deg,#fff7e9,#f1eadb)}.dark .drink-card.sticker-card{background:#322f29}.drink-card.sticker-card img{object-fit:contain;background:radial-gradient(circle,#fffdf8 0%,#f8ecdc 70%);filter:none}.cup-sticker-preview{background:radial-gradient(circle,#fffdf8 0%,#f3eadc 72%)}.dark .cup-sticker-preview{background:radial-gradient(circle,#343832,#272c28 72%)}.cup-sticker-preview.ready img{object-fit:contain;padding:8px;filter:drop-shadow(0 6px 7px rgba(78,59,38,.18))}
+.photo-error{margin:-2px 0 10px;padding:9px 11px;border-radius:9px;background:#fff0ed;color:#9b4d43;font-size:11px}.dark .photo-error{background:#472d2a;color:#f0bbb4}
+
+.profile-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:24px;align-items:center}.profile-panel>div:first-child p{font-size:12px;color:var(--muted);margin:5px 0}.profile-name-editor label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted)}.name-preview{display:flex;align-items:center;gap:10px;margin-top:11px;padding:11px;border-radius:12px;background:var(--sage-soft)}.name-preview img{width:42px;height:42px;border-radius:12px}.name-preview span{display:block;font-size:9px;color:var(--muted)}.name-preview b{font-size:15px;color:var(--sage-dark)}
+
+@media(max-width:600px){
+  .today-life-card{padding:17px 14px}.today-life-head{display:block}.today-life-head>.text-btn{margin-top:8px}.life-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.today-stickers{display:none}
+  .calendar-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.calendar-actions button{min-width:0;padding:7px 5px;font-size:11px}.calendar-panel .calendar-grid button{height:62px;padding:5px 1px}.calendar-stickers{inset:20px 0 0}.calendar-stickers img{width:34px;height:34px}.calendar-panel .legend{line-height:1.5}
+  .profile-panel{grid-template-columns:1fr;gap:14px}
+}
+
+@media(max-width:360px){
+  .life-actions{grid-template-columns:1fr 1fr}
+  .calendar-panel .calendar-grid button{height:57px}
+  .calendar-stickers img{width:30px;height:30px}
+}

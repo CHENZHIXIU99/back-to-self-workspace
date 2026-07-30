@@ -1,12 +1,12 @@
 {
-  "name":"BackToSelf Workspace",
-  "short_name":"BackToSelf",
-  "description":"个人生活与工作台",
+  "name":"橙子成长工作台",
+  "short_name":"橙子工作台",
+  "description":"记录工作、生活、健康与成长",
   "id":"./",
   "start_url":"./",
   "scope":"./",
   "display":"standalone",
   "background_color":"#f4f1ea",
   "theme_color":"#738575",
-  "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "icons":[{"src":"./icon.png","sizes":"1254x1254","type":"image/png","purpose":"any maskable"}]
 }

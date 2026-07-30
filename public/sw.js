@@ -1,4 +1,4 @@
-const CACHE="orange-growth-workspace-v3";
+const CACHE="orange-growth-workspace-v4";
 const scopeUrl=self.registration.scope;
 const core=["","manifest.webmanifest","icon.png"].map(path=>new URL(path,scopeUrl).toString());
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(core))));

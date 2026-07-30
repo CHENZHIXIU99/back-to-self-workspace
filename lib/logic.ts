@@ -12,6 +12,34 @@ export function localDateKey(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export type MonthCalendarCell = {
+  dateKey: string;
+  day: number;
+  inMonth: boolean;
+};
+
+export function buildMonthCalendar(
+  year: number,
+  monthIndex: number,
+): MonthCalendarCell[] {
+  const firstDay = new Date(year, monthIndex, 1);
+  const mondayOffset = (firstDay.getDay() + 6) % 7;
+  const gridStart = new Date(year, monthIndex, 1 - mondayOffset);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(
+      gridStart.getFullYear(),
+      gridStart.getMonth(),
+      gridStart.getDate() + index,
+    );
+    return {
+      dateKey: localDateKey(date),
+      day: date.getDate(),
+      inMonth: date.getMonth() === monthIndex,
+    };
+  });
+}
+
 export function normalizeMoney(value: number | string): number {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;

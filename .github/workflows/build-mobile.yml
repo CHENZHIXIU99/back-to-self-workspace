@@ -50,12 +50,12 @@ jobs:
           cd android
           ./gradlew assembleDebug
           cd ..
-          cp android/app/build/outputs/apk/debug/app-debug.apk BackToSelf-Workspace-Android.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk Orange-Growth-Workspace-Android.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: BackToSelf-Workspace-Android.apk
+          path: Orange-Growth-Workspace-Android.apk
 
   ios:
     name: iOS Xcode project
@@ -94,12 +94,12 @@ jobs:
             build
 
       - name: Package iOS project
-        run: ditto -c -k --sequesterRsrc --keepParent ios BackToSelf-Workspace-iOS-Project.zip
+        run: ditto -c -k --sequesterRsrc --keepParent ios Orange-Growth-Workspace-iOS-Project.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: ios-project
-          path: BackToSelf-Workspace-iOS-Project.zip
+          path: Orange-Growth-Workspace-iOS-Project.zip
 
   release:
     name: Publish downloads
@@ -117,8 +117,8 @@ jobs:
       - name: Publish mobile release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mobile-v1.0.0
-          name: BackToSelf Workspace 移动端 v1.0.0
+          tag_name: mobile-v1.1.0
+          name: 橙子成长工作台 移动端 v1.1.0
           make_latest: true
           body: |
             Android：下载 APK 后即可安装。首次安装时请允许浏览器安装未知来源应用。
@@ -129,5 +129,5 @@ jobs:
 
             提醒：当前 Android APK 使用自动构建的测试签名。以后更新时如提示签名不同，请先导出 JSON 备份，再卸载旧版并安装新版。
           files: |
-            BackToSelf-Workspace-Android.apk
-            BackToSelf-Workspace-iOS-Project.zip
+            Orange-Growth-Workspace-Android.apk
+            Orange-Growth-Workspace-iOS-Project.zip

@@ -68,9 +68,16 @@ test("首页、健康页与设置页不会再次出现重复入口",()=>{
   const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
   const today=source.slice(source.indexOf("function Today("),source.indexOf("function Summary("));
   const health=source.slice(source.indexOf("function Health("),source.indexOf("function Metric("));
-  const settings=source.slice(source.indexOf("function SettingsPage("),source.indexOf("type InstallPromptEvent"));
+  const settings=source.slice(source.indexOf("function SettingsPage("),source.indexOf("function SearchResults("));
   assert.doesNotMatch(today,/今日生活记录|快速操作|健康记录/);
+  assert.doesNotMatch(today,/title="临时任务"[^\\n]*action="快速添加"/);
   assert.doesNotMatch(health,/记录第一杯|记录第一套穿搭|添加第一次记录|<section className="metric-grid">/);
-  assert.doesNotMatch(settings,/install-panel/);
+  assert.doesNotMatch(settings,/install-panel|InstallButton|显示系统安装提示/);
   assert.match(settings,/settings-install-mini/);
+});
+test("杯子贴纸识别使用适合手机照片的容错阈值且只接受杯子类别",()=>{
+  const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
+  const sticker=source.slice(source.indexOf("async function processCupSticker("),source.indexOf("function Editor("));
+  assert.match(sticker,/item\.class==="cup"&&item\.score>=\.35/);
+  assert.doesNotMatch(sticker,/item\.class==="bottle"|item\.class==="wine glass"/);
 });

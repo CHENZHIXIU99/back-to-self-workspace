@@ -15,7 +15,7 @@ main{margin-left:248px;min-height:100vh}.topbar{height:92px;padding:0 38px;borde
 /* 轻手写字体是主要风格，卡片保持清晰克制 */
 .brand-mark{font-family:"LXGW WenKai","Yuppy SC",sans-serif;font-weight:700}.brand b{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:700}
 .topbar h1,.hello h2,.panel-head h2,.panel-head h3,.emotion-hero h2{font-weight:700;letter-spacing:.01em}
-.settings-install-mini{max-width:800px;margin:4px 0 18px;color:var(--muted);font-size:11px}.settings-install-mini summary{list-style:none;display:flex;align-items:center;gap:6px;width:max-content;cursor:pointer;padding:6px 2px}.settings-install-mini summary::-webkit-details-marker{display:none}.settings-install-mini summary svg:last-child{transition:transform .2s}.settings-install-mini[open] summary svg:last-child{transform:rotate(90deg)}.settings-install-mini>div{max-width:540px;padding:9px 12px 12px;border-left:2px solid var(--line)}.settings-install-mini p{margin:4px 0;line-height:1.6}.install-now{margin-top:7px}
+.settings-install-mini{max-width:800px;margin:4px 0 18px;color:var(--muted);font-size:11px}.settings-install-mini summary{list-style:none;display:flex;align-items:center;gap:6px;width:max-content;cursor:pointer;padding:6px 2px}.settings-install-mini summary::-webkit-details-marker{display:none}.settings-install-mini summary svg:last-child{transition:transform .2s}.settings-install-mini[open] summary svg:last-child{transform:rotate(90deg)}.settings-install-mini>div{max-width:540px;padding:9px 12px 12px;border-left:2px solid var(--line)}.settings-install-mini p{margin:4px 0;line-height:1.6}
 .outfit-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.outfit-card{position:relative;background:#fffaf2;border:1px solid #e6ded1;border-radius:14px;padding:9px 9px 14px;box-shadow:2px 4px 12px rgba(70,60,46,.08)}.dark .outfit-card{background:#302c28;border-color:#49413a}.outfit-card:nth-child(odd){transform:rotate(-.35deg)}.outfit-card:nth-child(even){transform:rotate(.35deg)}.outfit-card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:9px}.outfit-card>div{padding:9px 3px 0}.outfit-card span{font-size:9px;color:var(--terra)}.outfit-card b{display:block;font-size:14px}.outfit-card p{font-size:10px;color:var(--muted);margin:3px 0}.outfit-delete{position:absolute;right:12px;top:12px;width:29px;height:29px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.88);color:var(--danger)}.photo-processing svg{animation:breathe 1.2s infinite}.outfit-preview img{object-position:center 28%}
 @media(max-width:900px){.outfit-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.outfit-grid{grid-template-columns:1fr 1fr;gap:9px}}
@@ -108,6 +108,10 @@ input,select,textarea{width:100%;max-width:100%}
 }
 
 /* 精简后的首页三张摘要卡：沿用原卡片风格，只调整排列 */
+.summary-card{display:flex;flex-direction:column;align-items:flex-start}
+.summary-card>p{overflow-wrap:anywhere}
+.summary-card>.progress{width:100%}
+.summary-card>.text-btn{position:static;margin-top:auto;padding-top:14px}
 .today-summary{grid-template-columns:repeat(3,1fr)}
 @media(max-width:600px){
   .today-summary{grid-template-columns:1fr 1fr}

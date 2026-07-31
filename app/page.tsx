@@ -150,7 +150,7 @@ function Today({data,completed,todayExpense,todayTransactions,today,open,go,togg
   <section className="summary-grid today-summary">
     <Summary icon={ListTodo} title="今日待办" value={`${completed}/${data.tasks.length}`} note={main?.title||"还没有任务"} progress={data.tasks.length?completed/data.tasks.length:0} onClick={()=>go("tasks")}/>
     <Summary icon={CircleDollarSign} title="今日支出" value={`¥${todayExpense.toFixed(2)}`} note={`${todayTransactions} 笔今日记录`} action="快速记一笔" onAction={()=>open("expense")}/>
-    <Summary icon={NotebookPen} title="临时任务" value={`${data.temporary.filter(t=>!t.done).length} 项`} note={data.temporary[0]?.title||"暂无临时任务"} action="快速添加" onAction={()=>open("temporary")}/>
+    <Summary icon={NotebookPen} title="临时任务" value={`${data.temporary.filter(t=>!t.done).length} 项`} note={data.temporary[0]?.title||"暂无临时任务"} onClick={()=>go("temporary")}/>
   </section>
   {main&&<section className="focus-card"><div className="focus-top"><div><span className="eyebrow">今日最重要任务</span><h2>{main.title}</h2></div><span className="duration"><Clock3 size={16}/>{main.minutes} 分钟</span></div><div className="focus-details"><div><span>具体下一步</span><p>{main.next}</p></div><div><span>完成标准</span><p>{main.standard}</p></div></div><div className="focus-actions"><button className="primary" onClick={()=>open("focus")}><Play size={17}/>开始专注</button><button className="secondary" onClick={()=>toggle(main.id)}>{main.done?"恢复任务":"标记完成"}</button></div></section>}
   <section className="panel"><div className="panel-head"><div><span className="eyebrow">时间轴</span><h3>接下来的安排</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{data.schedule.length?<div className="timeline">{data.schedule.map((x,i)=><div className="time-row" key={x.time}><time>{x.time}</time><span className={i===0?"dot current":"dot"}/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="给今天留一点空间，或添加第一项安排。"/>}</section></>
@@ -224,15 +224,7 @@ function Trends({data}:{data:WorkspaceData}){const hasData=data.tasks.length+dat
 
 function SettingsPage({data,update,theme,setTheme,font,setFont,exportJson,importFile,reset}:{data:WorkspaceData;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;theme:string;setTheme:(x:"light"|"dark")=>void;font:FontChoice;setFont:(x:FontChoice)=>void;exportJson:()=>void;importFile:(f:File)=>void;reset:()=>void}){
   const previewName=data.profile.name.trim()?`${data.profile.name.trim()}的工作台`:"我的工作台";
-  return <><section className="panel settings-section profile-panel"><div><span className="eyebrow">专属名称</span><h2>给自己的工作台取个名字</h2><p>每个人都可以在自己的手机上修改，只影响本机显示。</p></div><div className="profile-name-editor"><label>我的名字或昵称<input maxLength={12} value={data.profile.name} onChange={e=>update(d=>({...d,profile:{name:e.target.value.slice(0,12)}}))} placeholder="例如：小红、紫妍"/></label><div className="name-preview"><img src={`${basePath}/icon.png`} alt="工作台图标"/><div><span>修改后显示为</span><b>{previewName}</b></div></div></div></section><section className="panel settings-section"><h2>外观与字体</h2><div className="setting-row"><div><b>显示模式</b><p>选择舒适的阅读环境</p></div><div className="seg compact"><button className={theme==="light"?"active":""} onClick={()=>setTheme("light")}>浅色</button><button className={theme==="dark"?"active":""} onClick={()=>setTheme("dark")}>深色</button></div></div><div className="setting-row font-setting"><div><b>手机字体</b><p>选择后立即生效，并保存在本设备</p></div><div className="seg compact"><button className={font==="cute"?"active":""} onClick={()=>setFont("cute")}>可爱手写</button><button className={font==="system"?"active":""} onClick={()=>setFont("system")}>手机默认</button><button className={font==="rounded"?"active":""} onClick={()=>setFont("rounded")}>清爽圆体</button></div></div><div className="setting-row"><div><b>默认专注时长</b><p>开始专注时自动选择</p></div><span>25 分钟</span></div></section><section className="panel settings-section"><h2>数据与备份</h2><div className="privacy-note">当前数据默认仅保存在本设备中。清除应用或浏览器数据可能导致记录丢失，请定期导出备份。</div><div className="data-actions"><button className="secondary" onClick={exportJson}><Download size={17}/>导出 JSON 备份</button><label className="secondary file-btn"><Upload size={17}/>导入 JSON<input type="file" accept=".json" onChange={e=>e.target.files?.[0]&&importFile(e.target.files[0])}/></label><button className="secondary danger-outline" onClick={reset}><Trash2 size={17}/>清空全部数据</button></div><p className="muted">数据版本 {data.schemaVersion} · 最近更新 {new Date(data.updatedAt).toLocaleString("zh-CN")}</p></section><details className="settings-install-mini"><summary><Download size={14}/>安装到手机桌面<ChevronRight size={14}/></summary><div><p><b>iPhone：</b>用 Safari 打开本页，点击分享，再选择“添加到主屏幕”。</p><p><b>Android：</b>用 Chrome 打开本页，点击右上角菜单，再选择“安装应用”。</p><InstallButton/></div></details></>
-}
-
-type InstallPromptEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:"accepted"|"dismissed"}>};
-function InstallButton(){
-  const [promptEvent,setPromptEvent]=useState<InstallPromptEvent|null>(null);
-  useEffect(()=>{const handler=(e:Event)=>{e.preventDefault();setPromptEvent(e as InstallPromptEvent)};window.addEventListener("beforeinstallprompt",handler);return()=>window.removeEventListener("beforeinstallprompt",handler)},[]);
-  async function install(){if(promptEvent){await promptEvent.prompt();await promptEvent.userChoice;setPromptEvent(null)}else alert("iPhone 请点击 Safari 底部“分享”，再选择“添加到主屏幕”；Android 请使用 Chrome 打开后选择“安装应用”。")}
-  return <button className="secondary small install-now" onClick={install}><Download size={15}/>{promptEvent?"立即安装到手机":"显示系统安装提示"}</button>
+  return <><section className="panel settings-section profile-panel"><div><span className="eyebrow">专属名称</span><h2>给自己的工作台取个名字</h2><p>每个人都可以在自己的手机上修改，只影响本机显示。</p></div><div className="profile-name-editor"><label>我的名字或昵称<input maxLength={12} value={data.profile.name} onChange={e=>update(d=>({...d,profile:{name:e.target.value.slice(0,12)}}))} placeholder="例如：小红、紫妍"/></label><div className="name-preview"><img src={`${basePath}/icon.png`} alt="工作台图标"/><div><span>修改后显示为</span><b>{previewName}</b></div></div></div></section><section className="panel settings-section"><h2>外观与字体</h2><div className="setting-row"><div><b>显示模式</b><p>选择舒适的阅读环境</p></div><div className="seg compact"><button className={theme==="light"?"active":""} onClick={()=>setTheme("light")}>浅色</button><button className={theme==="dark"?"active":""} onClick={()=>setTheme("dark")}>深色</button></div></div><div className="setting-row font-setting"><div><b>手机字体</b><p>选择后立即生效，并保存在本设备</p></div><div className="seg compact"><button className={font==="cute"?"active":""} onClick={()=>setFont("cute")}>可爱手写</button><button className={font==="system"?"active":""} onClick={()=>setFont("system")}>手机默认</button><button className={font==="rounded"?"active":""} onClick={()=>setFont("rounded")}>清爽圆体</button></div></div><div className="setting-row"><div><b>默认专注时长</b><p>开始专注时自动选择</p></div><span>25 分钟</span></div></section><section className="panel settings-section"><h2>数据与备份</h2><div className="privacy-note">当前数据默认仅保存在本设备中。清除应用或浏览器数据可能导致记录丢失，请定期导出备份。</div><div className="data-actions"><button className="secondary" onClick={exportJson}><Download size={17}/>导出 JSON 备份</button><label className="secondary file-btn"><Upload size={17}/>导入 JSON<input type="file" accept=".json" onChange={e=>e.target.files?.[0]&&importFile(e.target.files[0])}/></label><button className="secondary danger-outline" onClick={reset}><Trash2 size={17}/>清空全部数据</button></div><p className="muted">数据版本 {data.schemaVersion} · 最近更新 {new Date(data.updatedAt).toLocaleString("zh-CN")}</p></section><details className="settings-install-mini"><summary><Download size={14}/>安装到手机桌面<ChevronRight size={14}/></summary><div><p><b>iPhone：</b>用 Safari 打开本页，点击分享，再选择“添加到主屏幕”。</p><p><b>Android：</b>用 Chrome 打开本页，点击右上角菜单，再选择“安装应用”。</p></div></details></>
 }
 
 function SearchResults({data,query,go}:{data:WorkspaceData;query:string;go:(p:Page)=>void}){const q=query.toLowerCase(); const rs=[...data.tasks.map(x=>({...x,kind:"任务",page:"tasks" as Page})),...data.notes.map(x=>({...x,kind:"笔记",page:"growth" as Page})),...data.transactions.map(x=>({id:x.id,title:x.note||x.category,content:`${x.category} ¥${x.amount}`,kind:"账单",page:"finance" as Page}))].filter(x=>(x.title+(("content"in x&&x.content)||"")).toLowerCase().includes(q));return <section className="panel"><div className="panel-head"><h2>“{query}” 的搜索结果</h2><span>{rs.length} 条</span></div>{rs.length?rs.map(r=><button className="search-result" key={r.id} onClick={()=>go(r.page)}><span>{r.kind}</span><div><b>{r.title}</b>{"content"in r&&<p>{String(r.content)}</p>}</div><ChevronRight size={18}/></button>):<Empty title="没有找到相关内容" note="换一个关键词，或检查日期和标签。"/>}</section>}
@@ -278,11 +270,13 @@ async function processCupSticker(input:Blob|string):Promise<string>{
   const detectContext=detectCanvas.getContext("2d");if(!detectContext)throw new Error("canvas");
   detectContext.drawImage(source,0,0,detectCanvas.width,detectCanvas.height);
   const detector=await getCupDetector();
-  const detected=await detector.detect(detectCanvas,10,.25);
-  const cup=detected.filter(item=>item.class==="cup"&&item.score>=.6).sort((a,b)=>b.score-a.score)[0];
+  const detected=await detector.detect(detectCanvas,20,.15);
+  const cup=detected
+    .filter(item=>item.class==="cup"&&item.score>=.35)
+    .sort((a,b)=>(b.score*Math.sqrt(b.bbox[2]*b.bbox[3]))-(a.score*Math.sqrt(a.bbox[2]*a.bbox[3])))[0];
   if(!cup)throw new Error("NO_CUP");
 
-  const [boxX,boxY,boxW,boxH]=cup.bbox,padX=boxW*.16,padY=boxH*.13;
+  const [boxX,boxY,boxW,boxH]=cup.bbox,padX=boxW*.04,padY=boxH*.01;
   const sx=Math.max(0,(boxX-padX)/detectScale),sy=Math.max(0,(boxY-padY)/detectScale);
   const sw=Math.min(source.naturalWidth-sx,(boxW+padX*2)/detectScale),sh=Math.min(source.naturalHeight-sy,(boxH+padY*2)/detectScale);
   const scale=Math.min(1,460/Math.max(sw,sh)),cropW=Math.max(1,Math.round(sw*scale)),cropH=Math.max(1,Math.round(sh*scale));
@@ -309,17 +303,38 @@ async function processCupSticker(input:Blob|string):Promise<string>{
   }
   ctx.putImageData(image,0,0);
 
+  const shaped=document.createElement("canvas");shaped.width=cropW;shaped.height=cropH;
+  const shapedContext=shaped.getContext("2d");if(!shapedContext)throw new Error("canvas");
+  shapedContext.beginPath();
+  if(cropH>=cropW*.72){
+    shapedContext.moveTo(cropW*.16,cropH*.05);
+    shapedContext.bezierCurveTo(cropW*.31,-cropH*.01,cropW*.69,-cropH*.01,cropW*.84,cropH*.05);
+    shapedContext.bezierCurveTo(cropW*.93,cropH*.09,cropW*.94,cropH*.15,cropW*.9,cropH*.22);
+    shapedContext.lineTo(cropW*.82,cropH*.9);
+    shapedContext.bezierCurveTo(cropW*.81,cropH*.98,cropW*.68,cropH,cropW*.5,cropH);
+    shapedContext.bezierCurveTo(cropW*.32,cropH,cropW*.19,cropH*.98,cropW*.18,cropH*.9);
+    shapedContext.lineTo(cropW*.1,cropH*.22);
+    shapedContext.bezierCurveTo(cropW*.06,cropH*.15,cropW*.07,cropH*.09,cropW*.16,cropH*.05);
+  }else{
+    shapedContext.roundRect(cropW*.06,cropH*.08,cropW*.72,cropH*.84,Math.max(12,cropH*.12));
+    shapedContext.moveTo(cropW*.72,cropH*.27);
+    shapedContext.bezierCurveTo(cropW*.98,cropH*.2,cropW*.99,cropH*.73,cropW*.72,cropH*.68);
+    shapedContext.bezierCurveTo(cropW*.82,cropH*.62,cropW*.84,cropH*.34,cropW*.72,cropH*.35);
+  }
+  shapedContext.closePath();shapedContext.clip();shapedContext.drawImage(canvas,0,0);
+  const shapedPixels=shapedContext.getImageData(0,0,cropW,cropH).data;
+
   const silhouette=document.createElement("canvas");silhouette.width=cropW;silhouette.height=cropH;
   const silhouetteContext=silhouette.getContext("2d");if(!silhouetteContext)throw new Error("canvas");
   const mask=silhouetteContext.createImageData(cropW,cropH);
-  for(let i=0;i<pixels.length;i+=4){mask.data[i]=255;mask.data[i+1]=252;mask.data[i+2]=246;mask.data[i+3]=pixels[i+3]}
+  for(let i=0;i<shapedPixels.length;i+=4){mask.data[i]=255;mask.data[i+1]=252;mask.data[i+2]=246;mask.data[i+3]=shapedPixels[i+3]}
   silhouetteContext.putImageData(mask,0,0);
   const sticker=document.createElement("canvas"),pad=Math.max(18,Math.round(Math.min(cropW,cropH)*.07));
   sticker.width=cropW+pad*2;sticker.height=cropH+pad*2;
   const out=sticker.getContext("2d");if(!out)throw new Error("canvas");
   const outline=Math.max(4,Math.round(pad*.38));
   for(let dy=-outline;dy<=outline;dy+=2)for(let dx=-outline;dx<=outline;dx+=2)if(dx*dx+dy*dy<=outline*outline)out.drawImage(silhouette,pad+dx,pad+dy);
-  out.drawImage(canvas,pad,pad);
+  out.drawImage(shaped,pad,pad);
   return sticker.toDataURL("image/webp",.88);
 }
 

@@ -134,7 +134,12 @@ export default function HomePage() {
   const [timer, setTimer] = useState<TimerState>(loadTimerState);
 
   useEffect(() => { loadWorkspace().then(v => { setData(v); setReady(true); }); }, []);
-  useEffect(() => { if ("serviceWorker" in navigator) navigator.serviceWorker.register(`${basePath}/sw.js`).catch(()=>{}); }, []);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register(`${basePath}/sw.js`,{updateViaCache:"none"})
+      .then(registration=>registration.update())
+      .catch(()=>{});
+  }, []);
   useEffect(() => { if (ready) saveWorkspace(data); }, [data, ready]);
   useEffect(() => { localStorage.setItem("bts-timer", JSON.stringify(timer)); }, [timer]);
   useEffect(() => { localStorage.setItem("orange-workspace-font", font); }, [font]);

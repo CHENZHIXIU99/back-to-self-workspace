@@ -43,8 +43,8 @@ jobs:
           npx cap add android
           npx cap sync android
           npx @capacitor/assets generate --android --iconBackgroundColor "#748775" --splashBackgroundColor "#f4f1ea"
-          sed -i 's/versionCode 1/versionCode 141/' android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "1.4.1"/' android/app/build.gradle
+          sed -i 's/versionCode 1/versionCode 142/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.4.2"/' android/app/build.gradle
 
       - name: Build installable APK
         run: |
@@ -119,8 +119,8 @@ jobs:
       - name: Publish mobile release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mobile-v1.4.1
-          name: 橙子成长工作台 移动端 v1.4.1
+          tag_name: mobile-v1.4.2
+          name: 橙子成长工作台 移动端 v1.4.2
           make_latest: true
           body: |
             Android：下载 APK 后即可安装。首次安装时请允许浏览器安装未知来源应用。
@@ -138,6 +138,8 @@ jobs:
             成长与行动：把专注计时、到达打卡和学习记录合并为一个入口，通过三个分区按需展开，减少手机菜单和页面长列表。
 
             时间轴：到达与离开合并为一条“实际足迹”，自动显示在当天首页和日历详情；计划与实际清楚区分，离开不会重复计为一次到达。
+
+            更新：健康总结已删除计算规则类说明；离线缓存升级为 v6，新版本会立即接管并刷新一次，避免网页或桌面图标长期停留在旧界面。
 
             数据：所有专注、地点与任务记录仍只保存在使用者自己的设备中，不会上传，也不会让工作台创建者看到朋友的数据。
 

@@ -196,7 +196,8 @@ test("专注计时支持正计时、自定义倒计时和周月累计",()=>{
   assert.match(source,/changeFocusMode\("stopwatch"\)/);
   assert.match(source,/自定义分钟/);
   assert.match(source,/function FocusInsights\(/);
-  assert.match(source,/label:\s*"专注记录"/);
+  assert.match(source,/label:\s*"成长与行动"/);
+  assert.match(source,/function Growth\(/);
   assert.match(source,/if \(!ready\|\|!timer\.running\) return/);
 });
 test("任务可设置到达地点，并支持离开、修改、删除和月度统计",()=>{
@@ -212,4 +213,19 @@ test("任务可设置到达地点，并支持离开、修改、删除和月度�
   assert.doesNotMatch(source,/prompt\("修改打卡地点/);
   assert.match(database,/schemaVersion:10/);
   assert.match(database,/checkins:\(raw\.checkins\|\|\[\]\)/);
+});
+test("成长相关入口合并，打卡作为实际足迹进入首页与日历",()=>{
+  const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
+  const navigation=source.slice(source.indexOf("const nav:"),source.indexOf("const pageTitle:"));
+  assert.equal((navigation.match(/label:\s*"成长与行动"/g)||[]).length,1);
+  assert.doesNotMatch(navigation,/label:\s*"专注记录"/);
+  assert.doesNotMatch(navigation,/label:\s*"学习成长"/);
+  assert.doesNotMatch(navigation,/label:\s*"到达与离开打卡"/);
+  assert.match(source,/setSection\("focus"\)/);
+  assert.match(source,/setSection\("checkins"\)/);
+  assert.match(source,/setSection\("notes"\)/);
+  assert.match(source,/const todayTimeline=timelineForDate\(data,localDateKey\(\)\)/);
+  assert.match(source,/const selectedTimeline=timelineForDate\(data,selectedDate\)/);
+  assert.match(source,/detail:item\.leftAt[\s\S]*实际足迹/);
+  assert.match(source,/for\(const item of data\.checkins\)timelineCount\.set/);
 });

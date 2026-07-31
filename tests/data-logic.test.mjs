@@ -229,3 +229,15 @@ test("成长相关入口合并，打卡作为实际足迹进入首页与日历",
   assert.match(source,/detail:item\.leftAt[\s\S]*实际足迹/);
   assert.match(source,/for\(const item of data\.checkins\)timelineCount\.set/);
 });
+test("健康页不展示计算规则说明，离线应用会立即切换到新版",()=>{
+  const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
+  const serviceWorker=readFileSync(fileURLToPath(new URL("../public/sw.js",import.meta.url)),"utf8");
+  assert.doesNotMatch(source,/没有填写的项目不会被当作 0 参与平均/);
+  assert.doesNotMatch(source,/只总结真实记录过的数据/);
+  assert.doesNotMatch(source,/未填写日不参与平均|0 或未填写不参与平均|仅计算已填写的天数/);
+  assert.match(source,/updateViaCache:"none"/);
+  assert.match(serviceWorker,/orange-growth-workspace-v6/);
+  assert.match(serviceWorker,/self\.skipWaiting\(\)/);
+  assert.match(serviceWorker,/self\.clients\.claim\(\)/);
+  assert.match(serviceWorker,/client\.navigate\(client\.url\)/);
+});

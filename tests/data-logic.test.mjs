@@ -64,3 +64,13 @@ test("内置杯子识别模型及全部权重文件完整",()=>{
     assert.ok(statSync(file).size>1_000_000,`${shard} 不应为空`);
   }
 });
+test("首页、健康页与设置页不会再次出现重复入口",()=>{
+  const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
+  const today=source.slice(source.indexOf("function Today("),source.indexOf("function Summary("));
+  const health=source.slice(source.indexOf("function Health("),source.indexOf("function Metric("));
+  const settings=source.slice(source.indexOf("function SettingsPage("),source.indexOf("type InstallPromptEvent"));
+  assert.doesNotMatch(today,/今日生活记录|快速操作|健康记录/);
+  assert.doesNotMatch(health,/记录第一杯|记录第一套穿搭|添加第一次记录|<section className="metric-grid">/);
+  assert.doesNotMatch(settings,/install-panel/);
+  assert.match(settings,/settings-install-mini/);
+});

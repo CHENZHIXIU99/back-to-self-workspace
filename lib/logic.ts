@@ -40,6 +40,15 @@ export function buildMonthCalendar(
   });
 }
 
+export function schedulesForDate<T extends { date: string; time: string }>(
+  schedule: T[],
+  date: string,
+): T[] {
+  return schedule
+    .filter((item) => item.date === date)
+    .sort((a, b) => a.time.localeCompare(b.time));
+}
+
 export function normalizeMoney(value: number | string): number {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;

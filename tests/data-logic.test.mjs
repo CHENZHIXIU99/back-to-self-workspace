@@ -7,6 +7,7 @@ import {
   expenseByCategory,
   localDateKey,
   normalizeMoney,
+  schedulesForDate,
   summarizeTransactions,
 } from "../lib/logic.ts";
 
@@ -50,6 +51,15 @@ test("日历按周一开头生成完整六周且日期准确",()=>{
   assert.equal(cells.find(x=>x.dateKey==="2026-07-30")?.day,30);
   assert.equal(cells.at(-1)?.dateKey,"2026-08-09");
 });
+test("未来日程只显示在对应日期，并按时间先后排列",()=>{
+  const schedule=[
+    {id:"1",date:"2026-08-05",time:"18:30",title:"晚饭"},
+    {id:"2",date:"2026-07-31",time:"09:00",title:"今天"},
+    {id:"3",date:"2026-08-05",time:"08:15",title:"晨练"},
+  ];
+  assert.deepEqual(schedulesForDate(schedule,"2026-08-05").map(x=>x.id),["3","1"]);
+  assert.deepEqual(schedulesForDate(schedule,"2026-07-31").map(x=>x.id),["2"]);
+});
 test("未完成任务自动顺延最多两项",()=>{const pending=[1,2,3,4];assert.deepEqual(pending.slice(0,2),[1,2])});
 test("计时器按结束时间恢复",()=>{const now=1_000_000,end=now+25*60*1000;assert.equal(Math.ceil((end-now)/1000),1500)});
 test("数据导出后可无损导入",()=>{const data={schemaVersion:1,tasks:[{id:"1"}]};assert.deepEqual(JSON.parse(JSON.stringify(data)),data)});
@@ -80,4 +90,13 @@ test("杯子贴纸识别使用适合手机照片的容错阈值且只接受杯�
   const sticker=source.slice(source.indexOf("async function processCupSticker("),source.indexOf("function Editor("));
   assert.match(sticker,/item\.class==="cup"&&item\.score>=\.35/);
   assert.doesNotMatch(sticker,/item\.class==="bottle"|item\.class==="wine glass"/);
+});
+test("日程入口不会再误用今日任务，保存时必须写入所选日期",()=>{
+  const source=readFileSync(fileURLToPath(new URL("../app/page.tsx",import.meta.url)),"utf8");
+  const calendar=source.slice(source.indexOf("function Calendar("),source.indexOf("function Temporary("));
+  const editor=source.slice(source.indexOf("function Editor("),source.indexOf("function Field("));
+  assert.doesNotMatch(calendar,/open\("task"\)/);
+  assert.match(calendar,/openSchedule\(selectedDate\)/);
+  assert.match(editor,/modal==="schedule"/);
+  assert.match(editor,/date:form\.date/);
 });

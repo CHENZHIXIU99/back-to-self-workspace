@@ -160,3 +160,22 @@ input,select,textarea{width:100%;max-width:100%}
   .checkin-inline-edit{grid-template-columns:1fr 1fr}.checkin-inline-edit input{grid-column:1/-1}
   .checkin-month-head{align-items:flex-start}.checkin-month-nav{width:100%;justify-content:center}
 }
+
+/* 成长与行动合并入口、计划与实际足迹时间轴 */
+.growth-hub-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:22px;background:linear-gradient(135deg,var(--card),var(--sage-soft))}
+.growth-hub-head h2{margin:4px 0;font-size:22px}.growth-hub-head p{margin:0;color:var(--muted);font-size:12px}
+.growth-hub-tabs{display:flex;gap:7px;padding:5px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.growth-hub-tabs button{min-height:40px;padding:8px 13px;border:0;border-radius:10px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.growth-hub-tabs button.active{background:var(--sage);color:#fff;box-shadow:0 3px 10px rgba(74,99,77,.18)}
+.growth-action-card{display:flex;align-items:center;justify-content:space-between;gap:18px}.growth-action-card h2{margin:3px 0;font-size:19px}.growth-action-card p{margin:0;color:var(--muted);font-size:11px}
+.mixed-timeline{gap:4px}.mixed-timeline .time-row{grid-template-columns:50px 15px minmax(0,1fr);padding:8px;border-radius:12px;min-height:58px}.mixed-timeline .time-row.actual{background:var(--sage-soft)}
+.mixed-timeline .dot.actual{background:#e7975c;border-color:#e7975c}.mixed-timeline .dot.actual:after{background:color-mix(in srgb,#e7975c 42%,var(--line))}
+.timeline-title{display:flex;align-items:center;gap:7px;min-width:0}.timeline-title b{overflow-wrap:anywhere}.timeline-title small{flex:none;padding:2px 6px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:8px;letter-spacing:.08em}.actual .timeline-title small{background:#fff3e9;color:#a96337}.dark .actual .timeline-title small{background:#4a352b;color:#f1c09f}
+
+@media(max-width:600px){
+  .growth-hub-head{grid-template-columns:1fr;align-items:start;padding:18px 14px}.growth-hub-tabs{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .growth-hub-tabs button{min-width:0;padding:8px 4px;justify-content:center;flex-direction:column;font-size:10px}
+  .growth-action-card{align-items:flex-start;flex-direction:column}.growth-action-card .primary{width:100%}
+  .mixed-timeline .time-row{grid-template-columns:43px 13px minmax(0,1fr);gap:7px;padding:8px 5px}
+  .mixed-timeline .time-row time{font-size:10px}.timeline-title{align-items:flex-start;flex-wrap:wrap}
+}

@@ -43,6 +43,155 @@ jobs:
           npx cap add android
           npx cap sync android
           npx @capacitor/assets generate --android --iconBackgroundColor "#748775" --splashBackgroundColor "#f4f1ea"
+          sed -i 's/versionCode 1/versionCode 140/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.4.0"/' android/app/build.gradle
+
+      - name: Build installable APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug
+          cd ..
+          cp android/app/build/outputs/apk/debug/app-debug.apk Orange-Growth-Workspace-Android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: Orange-Growth-Workspace-Android.apk
+
+  ios:
+    name: iOS Xcode project
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Export native web app
+        run: npm run build:native
+
+      - name: Create iOS project and privacy permissions
+        run: |
+          npx cap add ios
+          npx cap sync ios
+          npx @capacitor/assets generate --ios --iconBackgroundColor "#748775" --splashBackgroundColor "#f4f1ea"
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 用于拍摄每日饮品和穿搭照片。" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 用于选择每日饮品和穿搭照片。" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 用于保存你导出的照片和内容。" ios/App/App/Info.plist
+
+      - name: Validate iPhone simulator build
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package iOS project
+        run: ditto -c -k --sequesterRsrc --keepParent ios Orange-Growth-Workspace-iOS-Project.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-project
+          path: Orange-Growth-Workspace-iOS-Project.zip
+
+  release:
+    name: Publish downloads
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-project
+
+      - name: Publish mobile release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-v1.4.0
+          name: 橙子成长工作台 移动端 v1.4.0
+          make_latest: true
+          body: |
+            Android：下载 APK 后即可安装。首次安装时请允许浏览器安装未知来源应用。
+
+            iPhone：iOS 安装包必须使用 Apple Developer 账号签名。此版本提供已验证的 Xcode 工程，供后续签名并发布到 TestFlight；现在可以直接用 Safari 打开网页版并“添加到主屏幕”。
+
+            隐私：工作台数据默认只保存在每个人自己的设备中；相机和相册仅在本人点击上传照片时访问。
+
+            功能：每个人可在设置中修改自己的工作台昵称；“生活与健康”固定在手机底部导航；饮品照片会在本机识别杯子并生成卡通贴纸，显示在当天日历。识别模型已包含在安装包内，照片不会上传。
+
+            专注：新增可自定义分钟的倒计时和从零开始的正计时；锁屏或切到后台后仍按真实经过时间恢复。每次完成后按日、自然周、自然月和历史累计专注时长。
+
+            打卡：任务可选填图书馆、公司等地点，到达时开始、离开时结束；也可单独打卡。自动统计今日、本月、历史次数和累计停留时长，错误记录支持页面内修改与删除。
+
+            数据：所有专注、地点与任务记录仍只保存在使用者自己的设备中，不会上传，也不会让工作台创建者看到朋友的数据。
+
+            修复：杯子识别模型已直接内置，不再依赖国外网络；修正明显杯子因识别分数略低而无法生成贴纸的问题，并在多个杯子候选中优先选择最清楚、面积最大的杯子；仍只处理杯子，不会把其他物品做成贴纸。
+
+            界面：删除首页临时任务卡片里的重复“快速添加”，修复摘要卡文字重叠；安装说明展开后只保留必要步骤，删除重复的系统提示按钮。
+
+            日程：日历现可切换月份并选择未来任意日期添加计划；日程会显示在对应日期，按时间排序，并用数字标记当天日程数量。未来日程不会混入今日首页，也可在对应日期删除。
+
+            提醒：当前 Android APK 使用自动构建的测试签名。以后更新时如提示签名不同，请先导出 JSON 备份，再卸载旧版并安装新版。
+          files: |
+            Orange-Growth-Workspace-Android.apk
+            Orange-Growth-Workspace-iOS-Project.zip
+name: Build Mobile Apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/build-mobile.yml"
+      - "app/**"
+      - "lib/**"
+      - "public/**"
+      - "capacitor.config.ts"
+      - "next.config.ts"
+      - "package.json"
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Export native web app
+        run: npm run build:native
+
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+          npx @capacitor/assets generate --android --iconBackgroundColor "#748775" --splashBackgroundColor "#f4f1ea"
 
       - name: Build installable APK
         run: |

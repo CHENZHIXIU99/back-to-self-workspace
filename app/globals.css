@@ -12,6 +12,25 @@ main{margin-left:248px;min-height:100vh}.topbar{height:92px;padding:0 38px;borde
 @media(max-width:360px){.summary-grid,.metric-grid{grid-template-columns:1fr}.quick-grid{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
+/* 日历计划：选中日期、月份切换与日程数量 */
+.calendar-grid .selected-day{z-index:1;box-shadow:inset 0 0 0 2px var(--sage);opacity:1}
+.calendar-month-switch{display:flex;align-items:center;gap:3px;margin-top:2px}
+.calendar-month-switch h2{min-width:145px;text-align:center}
+.calendar-month-switch .text-btn{margin-left:6px}
+.calendar-schedule-count{position:absolute;right:5px;bottom:5px;z-index:3;min-width:17px;height:17px;padding:0 4px;display:grid;place-items:center;border-radius:20px;background:var(--sage);color:#fff;font:700 9px/1 system-ui}
+.selected-schedule-panel .empty{padding-block:42px}
+.schedule-entry{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.schedule-entry>div{min-width:0}
+.schedule-entry .icon{width:32px;height:32px;flex:none;margin-top:-5px}
+
+@media(max-width:600px){
+  .calendar-title-row>div:first-child{width:100%}
+  .calendar-month-switch{justify-content:space-between}
+  .calendar-month-switch h2{min-width:0;font-size:19px}
+  .calendar-month-switch .text-btn{font-size:10px}
+  .selected-schedule-panel .panel-head>.primary{width:auto}
+}
+
 /* 轻手写字体是主要风格，卡片保持清晰克制 */
 .brand-mark{font-family:"LXGW WenKai","Yuppy SC",sans-serif;font-weight:700}.brand b{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:700}
 .topbar h1,.hello h2,.panel-head h2,.panel-head h3,.emotion-hero h2{font-weight:700;letter-spacing:.01em}

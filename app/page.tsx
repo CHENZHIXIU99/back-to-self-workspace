@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
-  Activity, BarChart3, BookOpen, CalendarDays, Camera, Check, ChevronRight, CircleDollarSign,
+  Activity, BarChart3, BookOpen, CalendarDays, Camera, Check, ChevronLeft, ChevronRight, CircleDollarSign,
   Clock3, Download, Droplets, HeartHandshake, Home, ListTodo, Menu, Moon,
   CupSoda, Flower2, NotebookPen, Pause, Play, Plus, Search, Settings, Shirt, Sparkles, Trash2,
   Upload, UserRound, WalletCards, X
@@ -14,13 +14,14 @@ import {
   expenseByCategory,
   localDateKey,
   normalizeMoney,
+  schedulesForDate,
   summarizeTransactions,
 } from "@/lib/logic";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 type Page = "today" | "tasks" | "calendar" | "temporary" | "health" | "weight" | "finance" | "growth" | "emotion" | "weekly" | "trends" | "settings";
-type Modal = null | "task" | "expense" | "temporary" | "weight" | "drink" | "outfit" | "period" | "focus" | "emotion" | "note";
+type Modal = null | "task" | "schedule" | "expense" | "temporary" | "weight" | "drink" | "outfit" | "period" | "focus" | "emotion" | "note";
 type FontChoice = "cute" | "system" | "rounded";
 
 const nav: { id: Page; label: string; icon: typeof Home }[] = [
@@ -43,6 +44,7 @@ export default function HomePage() {
   const [data, setData] = useState<WorkspaceData>(seedData);
   const [page, setPage] = useState<Page>("today");
   const [modal, setModal] = useState<Modal>(null);
+  const [scheduleDate, setScheduleDate] = useState(localDateKey());
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
   const [query, setQuery] = useState("");
@@ -91,6 +93,10 @@ export default function HomePage() {
     if (!confirm("确定删除这条记录吗？删除后可通过数据备份恢复。")) return;
     update(d=>({...d,[kind]:d[kind].filter((x:{id:string})=>x.id!==id)})); notify("已删除");
   }
+  function removeSchedule(id:string){
+    if (!confirm("确定删除这项日程吗？")) return;
+    update(d=>({...d,schedule:d.schedule.filter(item=>item.id!==id)})); notify("日程已删除");
+  }
   function exportJson(){
     download(`橙子成长工作台-数据备份-${localDateKey()}.json`,JSON.stringify(data,null,2),"application/json");
   }
@@ -99,7 +105,8 @@ export default function HomePage() {
     download("橙子成长工作台-每周复盘.md",md,"text/markdown");
   }
   function download(name:string,text:string,type:string){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name;a.click();URL.revokeObjectURL(a.href); }
-  async function importFile(file:File){ try{ const parsed=JSON.parse(await file.text()); if(!parsed.schemaVersion||!Array.isArray(parsed.tasks)) throw new Error(); setData({...seedData,...parsed,schemaVersion:6,updatedAt:new Date().toISOString(),profile:{...seedData.profile,...parsed.profile},health:{...seedData.health,...parsed.health},drinks:(parsed.drinks||[]).map((x:WorkspaceData["drinks"][number])=>({...x,sticker:x.sticker||false})),outfits:parsed.outfits||[],periods:parsed.periods||[]});notify("数据已恢复"); }catch{notify("无法导入：文件格式不正确");} }
+  async function importFile(file:File){ try{ const parsed=JSON.parse(await file.text()); if(!parsed.schemaVersion||!Array.isArray(parsed.tasks)) throw new Error(); const restoredSchedule=(parsed.schedule||[]).map((x:Partial<WorkspaceData["schedule"][number]>,index:number)=>({id:x.id||`imported-schedule-${index}`,date:x.date||localDateKey(),time:x.time||"09:00",title:x.title||"未命名日程",type:x.type||"个人安排"})); setData({...seedData,...parsed,schemaVersion:7,updatedAt:new Date().toISOString(),profile:{...seedData.profile,...parsed.profile},health:{...seedData.health,...parsed.health},drinks:(parsed.drinks||[]).map((x:WorkspaceData["drinks"][number])=>({...x,sticker:x.sticker||false})),outfits:parsed.outfits||[],periods:parsed.periods||[],schedule:restoredSchedule});notify("数据已恢复"); }catch{notify("无法导入：文件格式不正确");} }
+  function openSchedule(date=localDateKey()){setScheduleDate(date);setModal("schedule")}
 
   const ownerName=data.profile.name.trim();
   const workspaceName=ownerName?`${ownerName}的工作台`:"我的工作台";
@@ -122,7 +129,7 @@ export default function HomePage() {
         {query ? <SearchResults data={data} query={query} go={setPage}/> :
         page==="today" ? <Today data={data} completed={completed} todayExpense={todayFinance.expense} todayTransactions={todayFinance.count} today={todayLabel} open={setModal} go={setPage} toggle={toggleTask} update={update}/> :
         page==="tasks" ? <Tasks data={data} toggle={toggleTask} open={setModal} remove={remove}/> :
-        page==="calendar" ? <Calendar data={data} open={setModal}/> :
+        page==="calendar" ? <Calendar data={data} open={setModal} openSchedule={openSchedule} removeSchedule={removeSchedule}/> :
         page==="temporary" ? <Temporary data={data} open={setModal} remove={remove} update={update}/> :
         page==="health" ? <Health data={data} update={update} notify={notify}/> :
         page==="weight" ? <Weight data={data} open={setModal}/> :
@@ -138,13 +145,14 @@ export default function HomePage() {
       {[["today","今日",Home],["calendar","日历",CalendarDays],["temporary","记录",Plus],["health","健康",Activity],["settings","我的",UserRound]].map(([id,label,Icon])=><button key={id as string} className={page===id?"active":""} onClick={()=>setPage(id as Page)}><Icon size={21}/><span>{label as string}</span></button>)}
     </nav>
     {mobileMenu&&<div className="drawer-backdrop" onClick={()=>setMobileMenu(false)}><div className="drawer" onClick={e=>e.stopPropagation()}><div className="drawer-title"><b>全部功能</b><button className="icon" onClick={()=>setMobileMenu(false)}><X/></button></div>{nav.map(n=><button key={n.id} onClick={()=>{setPage(n.id);setMobileMenu(false)}}><n.icon size={19}/>{n.label}</button>)}</div></div>}
-    {modal&&<Editor modal={modal} close={()=>setModal(null)} update={update} notify={notify} timer={timer} setTimer={setTimer} workspaceName={workspaceName}/>}
+    {modal&&<Editor modal={modal} close={()=>setModal(null)} update={update} notify={notify} timer={timer} setTimer={setTimer} workspaceName={workspaceName} defaultScheduleDate={scheduleDate}/>}
     {toast&&<div className="toast" role="status" aria-live="polite"><Check size={17}/>{toast}</div>}
   </div>;
 }
 
 function Today({data,completed,todayExpense,todayTransactions,today,open,go,toggle,update}:{data:WorkspaceData;completed:number;todayExpense:number;todayTransactions:number;today:string;open:(m:Modal)=>void;go:(p:Page)=>void;toggle:(id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){
   const main=data.tasks.find(t=>t.important) || data.tasks[0];
+  const todaySchedule=schedulesForDate(data.schedule,localDateKey());
   return <><section className="hello"><div><span className="eyebrow">{today}</span><h2>{data.profile.name.trim()?`${data.profile.name.trim()}，今天想从哪件小事开始？`:"今天想从哪件小事开始？"}</h2><p>按自己的节奏来，先做好此刻最重要的一件事。</p></div><div className="status-select"><label>今日状态</label><select value={data.status} onChange={e=>update(d=>({...d,status:e.target.value}))}><option value="">选择今天的状态</option><option>精力正常</option><option>状态很好</option><option>有点疲惫</option><option>情绪波动</option><option>很需要休息</option></select></div></section>
   {(data.status==="情绪波动"||data.status==="很需要休息")&&<div className="gentle-banner"><Moon size={20}/><div><b>要进入低精力模式吗？</b><p>今天先维持基本运转，不要求高产。其他任务可以先放进“今天可以不做”。</p></div><button className="text-btn">调整今天</button></div>}
   <section className="summary-grid today-summary">
@@ -153,19 +161,30 @@ function Today({data,completed,todayExpense,todayTransactions,today,open,go,togg
     <Summary icon={NotebookPen} title="临时任务" value={`${data.temporary.filter(t=>!t.done).length} 项`} note={data.temporary[0]?.title||"暂无临时任务"} onClick={()=>go("temporary")}/>
   </section>
   {main&&<section className="focus-card"><div className="focus-top"><div><span className="eyebrow">今日最重要任务</span><h2>{main.title}</h2></div><span className="duration"><Clock3 size={16}/>{main.minutes} 分钟</span></div><div className="focus-details"><div><span>具体下一步</span><p>{main.next}</p></div><div><span>完成标准</span><p>{main.standard}</p></div></div><div className="focus-actions"><button className="primary" onClick={()=>open("focus")}><Play size={17}/>开始专注</button><button className="secondary" onClick={()=>toggle(main.id)}>{main.done?"恢复任务":"标记完成"}</button></div></section>}
-  <section className="panel"><div className="panel-head"><div><span className="eyebrow">时间轴</span><h3>接下来的安排</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{data.schedule.length?<div className="timeline">{data.schedule.map((x,i)=><div className="time-row" key={x.time}><time>{x.time}</time><span className={i===0?"dot current":"dot"}/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="给今天留一点空间，或添加第一项安排。"/>}</section></>
+  <section className="panel"><div className="panel-head"><div><span className="eyebrow">时间轴</span><h3>接下来的安排</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{todaySchedule.length?<div className="timeline">{todaySchedule.map((x,i)=><div className="time-row" key={x.id}><time>{x.time}</time><span className={i===0?"dot current":"dot"}/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="给今天留一点空间，或去日历安排之后的计划。"/>}</section></>
 }
 
 function Summary({icon:Icon,title,value,note,progress,action,onAction,onClick}:{icon:typeof Home;title:string;value:string;note:string;progress?:number;action?:string;onAction?:()=>void;onClick?:()=>void}){return <article className="summary-card" onClick={onClick}><div className="summary-icon"><Icon size={18}/></div><span>{title}</span><strong>{value}</strong><p>{note}</p>{progress!==undefined&&<div className="progress" aria-label={`完成进度${Math.round(progress*100)}%`}><i style={{width:`${progress*100}%`}}/></div>}{action&&<button className="text-btn" onClick={e=>{e.stopPropagation();onAction?.()}}>{action}<Plus size={15}/></button>}</article>}
 
 function Tasks({data,toggle,open,remove}:{data:WorkspaceData;toggle:(id:string)=>void;open:(m:Modal)=>void;remove:(k:"tasks",id:string)=>void}){return <section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">今日看板</span><h2>{data.tasks.filter(t=>t.done).length}/{data.tasks.length} 项已完成</h2><p>预计 {data.tasks.reduce((s,t)=>s+t.minutes,0)} 分钟</p></div><button className="primary" onClick={()=>open("task")}><Plus size={17}/>添加任务</button></div><div className="task-list">{data.tasks.map(t=><div className="task-row" key={t.id}><button className={t.done?"check done":"check"} aria-label={t.done?"恢复任务":"完成任务"} onClick={()=>toggle(t.id)}>{t.done&&<Check size={15}/>}</button><div className={t.done?"task-main completed":"task-main"}><b>{t.title}</b><p>{t.next}</p><div className="chips"><span>{t.category}</span><span>{t.priority}</span><span><Clock3 size={12}/>{t.minutes} 分钟</span></div></div><button className="icon danger" onClick={()=>remove("tasks",t.id)} aria-label="删除任务"><Trash2 size={17}/></button></div>)}</div></section>}
 
-function Calendar({data,open}:{data:WorkspaceData;open:(m:Modal)=>void}){
-  const now=new Date(),year=now.getFullYear(),month=now.getMonth(),today=localDateKey(now);
+function Calendar({data,open,openSchedule,removeSchedule}:{data:WorkspaceData;open:(m:Modal)=>void;openSchedule:(date:string)=>void;removeSchedule:(id:string)=>void}){
+  const now=new Date(),today=localDateKey(now);
+  const [viewMonth,setViewMonth]=useState(()=>new Date(now.getFullYear(),now.getMonth(),1));
+  const [selectedDate,setSelectedDate]=useState(today);
+  const year=viewMonth.getFullYear(),month=viewMonth.getMonth();
   const cells=buildMonthCalendar(year,month);
   const drinksByDate=new Map<string,WorkspaceData["drinks"]>();
   for(const drink of data.drinks){const list=drinksByDate.get(drink.date)||[];list.push(drink);drinksByDate.set(drink.date,list)}
-  return <><section className="panel calendar-panel"><div className="panel-head"><div><span className="eyebrow">月视图</span><h2>{year} 年 {month+1} 月</h2><p>拍下饮品后，识别出的杯子贴纸会出现在当天。</p></div><div className="calendar-actions"><button className="secondary" onClick={()=>open("drink")}><Camera size={17}/>拍今天的饮品</button><button className="primary" onClick={()=>open("task")}><Plus size={17}/>添加日程</button></div></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const drinks=drinksByDate.get(cell.dateKey)||[],stickers=drinks.filter(x=>x.photo&&x.sticker);return <button key={cell.dateKey} className={`${cell.dateKey===today?"today-day ":""}${!cell.inMonth?"muted-day ":""}${stickers.length?"has-sticker":""}`} title={`${cell.dateKey}${drinks.length?`，${drinks.length} 条饮品记录`:""}`} onClick={()=>cell.dateKey===today&&open("drink")}><span className="calendar-day-number">{cell.day}</span>{cell.dateKey===today&&<small>今天</small>}{stickers.length?<span className="calendar-stickers">{stickers.slice(0,2).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</span>:drinks.length?<i/>:null}</button>})}</div><div className="legend"><span>☕ 杯子贴纸：当天有饮品照片</span><span>点击“今天”可继续拍照记录</span></div></section><section className="panel"><div className="panel-head"><h3>今天的日程</h3></div>{data.schedule.length?<div className="timeline">{data.schedule.map(x=><div className="time-row" key={x.time}><time>{x.time}</time><span className="dot"/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="添加第一项日程后，它会显示在这里。"/>}</section></>
+  const scheduleCount=new Map<string,number>();
+  for(const item of data.schedule)scheduleCount.set(item.date,(scheduleCount.get(item.date)||0)+1);
+  const selectedSchedule=schedulesForDate(data.schedule,selectedDate);
+  const selectedDateValue=(()=>{const [y,m,d]=selectedDate.split("-").map(Number);return new Date(y,m-1,d)})();
+  const selectedLabel=new Intl.DateTimeFormat("zh-CN",{month:"long",day:"numeric",weekday:"long"}).format(selectedDateValue);
+  function changeMonth(offset:number){setViewMonth(current=>new Date(current.getFullYear(),current.getMonth()+offset,1))}
+  function selectDay(dateKey:string,inMonth:boolean){setSelectedDate(dateKey);if(!inMonth){const [y,m]=dateKey.split("-").map(Number);setViewMonth(new Date(y,m-1,1))}}
+  function backToday(){setSelectedDate(today);setViewMonth(new Date(now.getFullYear(),now.getMonth(),1))}
+  return <><section className="panel calendar-panel"><div className="panel-head calendar-title-row"><div><span className="eyebrow">月视图</span><div className="calendar-month-switch"><button className="icon" onClick={()=>changeMonth(-1)} aria-label="上个月"><ChevronLeft size={20}/></button><h2>{year} 年 {month+1} 月</h2><button className="icon" onClick={()=>changeMonth(1)} aria-label="下个月"><ChevronRight size={20}/></button><button className="text-btn" onClick={backToday}>回到今天</button></div><p>选择任意日期查看或添加计划；杯子贴纸仍显示在记录当天。</p></div><div className="calendar-actions"><button className="secondary" onClick={()=>open("drink")}><Camera size={17}/>拍今天的饮品</button><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>为选中日期添加</button></div></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const drinks=drinksByDate.get(cell.dateKey)||[],stickers=drinks.filter(x=>x.photo&&x.sticker),count=scheduleCount.get(cell.dateKey)||0;const dayDescription=`${cell.dateKey}${count?`，${count} 项日程`:""}${drinks.length?`，${drinks.length} 条饮品记录`:""}`;return <button key={cell.dateKey} className={`${cell.dateKey===today?"today-day ":""}${cell.dateKey===selectedDate?"selected-day ":""}${!cell.inMonth?"muted-day ":""}${stickers.length?"has-sticker":""}`} title={dayDescription} aria-label={dayDescription} onClick={()=>selectDay(cell.dateKey,cell.inMonth)}><span className="calendar-day-number">{cell.day}</span>{cell.dateKey===today&&<small>今天</small>}{count>0&&<span className="calendar-schedule-count">{count}</span>}{stickers.length?<span className="calendar-stickers">{stickers.slice(0,2).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</span>:drinks.length?<i/>:null}</button>})}</div><div className="legend"><span>小圆点数字：当天的日程数量</span><span>☕ 杯子贴纸：当天有饮品照片</span></div></section><section className="panel selected-schedule-panel"><div className="panel-head"><div><span className="eyebrow">{selectedDate===today?"今天":"已选日期"}</span><h3>{selectedLabel}的日程</h3></div><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>添加日程</button></div>{selectedSchedule.length?<div className="timeline">{selectedSchedule.map(x=><div className="time-row schedule-time-row" key={x.id}><time>{x.time}</time><span className="dot"/><div className="schedule-entry"><div><b>{x.title}</b><p>{x.type}</p></div><button className="icon danger" onClick={()=>removeSchedule(x.id)} aria-label={`删除日程：${x.title}`}><Trash2 size={16}/></button></div></div>)}</div>:<Empty title="这一天还没有日程" note="可以先把想做的事安排到这一天。"/>}</section></>
 }
 
 function Temporary({data,open,remove,update}:{data:WorkspaceData;open:(m:Modal)=>void;remove:(k:"temporary",id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){return <section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">任务收件箱</span><h2>先记下来，稍后安排</h2></div><button className="primary" onClick={()=>open("temporary")}><Plus size={17}/>添加临时任务</button></div>{data.temporary.length?data.temporary.map(t=><div className="task-row" key={t.id}><button className={t.done?"check done":"check"} onClick={()=>update(d=>({...d,temporary:d.temporary.map(x=>x.id===t.id?{...x,done:!x.done}:x)}))}>{t.done&&<Check size={15}/>}</button><div className="task-main"><b>{t.title}</b><p>截止：{t.deadline||"无明确日期"} · {t.priority}</p></div><button className="secondary small" onClick={()=>update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:t.title,next:"确认下一步并开始处理",standard:"任务已处理完成",minutes:30,category:"其他",priority:t.priority,done:false}],temporary:d.temporary.filter(x=>x.id!==t.id)}))}>安排到今日</button><button className="icon danger" onClick={()=>remove("temporary",t.id)}><Trash2 size={17}/></button></div>):<Empty title="收件箱是空的" note="临时出现的事情，可以先放在这里。" action="添加第一项" onClick={()=>open("temporary")}/>}</section>}
@@ -338,8 +357,8 @@ async function processCupSticker(input:Blob|string):Promise<string>{
   return sticker.toDataURL("image/webp",.88);
 }
 
-function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的工作台"}:{modal:Exclude<Modal,null>;close:()=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(x:string)=>void;timer:{running:boolean;end:number;remaining:number};setTimer:React.Dispatch<React.SetStateAction<{running:boolean;end:number;remaining:number}>>;workspaceName?:string}){
-  const [form,setForm]=useState<Record<string,string>>({});
+function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的工作台",defaultScheduleDate=localDateKey()}:{modal:Exclude<Modal,null>;close:()=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(x:string)=>void;timer:{running:boolean;end:number;remaining:number};setTimer:React.Dispatch<React.SetStateAction<{running:boolean;end:number;remaining:number}>>;workspaceName?:string;defaultScheduleDate?:string}){
+  const [form,setForm]=useState<Record<string,string>>(()=>modal==="schedule"?{date:defaultScheduleDate,time:"09:00",type:"个人安排"}:{});
   const [step,setStep]=useState(0);
   const [processing,setProcessing]=useState(false);
   const set=(k:string,v:string)=>setForm(f=>({...f,[k]:v}));
@@ -371,6 +390,7 @@ function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的�
   function save(){
     const today=localDateKey();
     if(modal==="task"){if(!form.title)return notify("请填写任务名称");const minutes=Math.min(600,Math.max(5,+form.minutes||30));update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:form.title,next:form.next||"明确下一步并开始",standard:form.standard||"达到预期结果",minutes,category:form.category||"其他",priority:form.priority||"普通",done:false}]}));}
+    if(modal==="schedule"){if(!form.date)return notify("请选择日期");if(!form.time)return notify("请选择时间");if(!form.title?.trim())return notify("请填写日程名称");update(d=>({...d,schedule:[...d.schedule,{id:crypto.randomUUID(),date:form.date,time:form.time,title:form.title.trim(),type:form.type||"个人安排"}].sort((a,b)=>`${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))}));}
     if(modal==="temporary"){if(!form.title)return notify("请填写任务名称");update(d=>({...d,temporary:[...d.temporary,{id:crypto.randomUUID(),title:form.title,deadline:form.deadline||"",priority:form.priority||"普通",done:false}]}));}
     if(modal==="expense"){const amount=normalizeMoney(form.amount||0);if(amount<=0)return notify("金额必须大于 0");update(d=>({...d,transactions:[{id:crypto.randomUUID(),amount,type:form.type||"支出",category:form.category||"餐饮",note:form.note||"",date:today},...d.transactions]}));}
     if(modal==="weight"){const value=normalizeMoney(form.value||0);if(value<=0||value>500)return notify("请输入正确体重");update(d=>({...d,weights:[...d.weights,{id:crypto.randomUUID(),value,date:today}].sort((a,b)=>a.date.localeCompare(b.date))}));}
@@ -382,9 +402,10 @@ function Editor({modal,close,update,notify,timer,setTimer,workspaceName="我的�
   }
   if(modal==="focus"){const mm=String(Math.floor(timer.remaining/60)).padStart(2,"0"),ss=String(timer.remaining%60).padStart(2,"0");return <div className="modal-backdrop"><div className="modal focus-modal"><button className="modal-close" onClick={close}><X/></button><span className="eyebrow">专注当下</span><h2>完成一轮 AI 训练测试</h2><div className="timer-display">{mm}:{ss}</div><p>情绪可以暂时存在，但我先完成手上的这一小步。</p><div className="timer-presets">{[15,25,45].map(v=><button onClick={()=>setTimer({running:false,end:0,remaining:v*60})} key={v}>{v} 分钟</button>)}</div><div className="focus-actions"><button className="primary large" onClick={()=>setTimer(t=>t.running?{...t,running:false}:{...t,running:true,end:Date.now()+t.remaining*1000})}>{timer.running?<><Pause/>暂停</>:<><Play/>开始</>}</button><button className="secondary" onClick={()=>{setTimer({running:false,end:0,remaining:25*60});update(d=>({...d,focusSessions:d.focusSessions+1}));notify("本轮专注已记录");close();}}>提前结束并记录</button></div></div></div>}
   if(modal==="emotion"){const prompts=[["我看到的 5 样东西","慢慢环顾四周，把看到的东西写下来"],["我听到的 3 种声音","注意远近不同的声音"],["身体接触到的 2 个位置","例如双脚接触地面、背部接触椅背"],["我现在准备完成的 1 件事","只选一件很小、可以马上开始的事"]];return <div className="modal-backdrop"><div className="modal emotion-modal"><button className="modal-close" onClick={close}><X/></button><span className="eyebrow">5 · 3 · 2 · 1 落地练习</span><div className="step-indicator">{prompts.map((_,i)=><i className={i<=step?"active":""} key={i}/>)}</div><h2>{prompts[step][0]}</h2><p>{prompts[step][1]}</p><textarea autoFocus value={form[`s${step}`]||""} onChange={e=>set(`s${step}`,e.target.value)} placeholder="写在这里…"/><button className="primary full" onClick={()=>step<3?setStep(step+1):(notify("我已经回到此刻。现在先做眼前这一件事。"),close())}>{step<3?"下一步":"完成练习"}</button></div></div>}
-  const titles:{[K in Exclude<Modal,null|"focus"|"emotion">]:string}={task:"添加今日任务",expense:"快速记一笔",temporary:"添加临时任务",weight:"记录体重",drink:"记录每日饮品",outfit:"记录今日穿搭",period:"记录姨妈周期",note:"添加学习笔记"};
+  const titles:{[K in Exclude<Modal,null|"focus"|"emotion">]:string}={task:"添加今日任务",schedule:"添加日程",expense:"快速记一笔",temporary:"添加临时任务",weight:"记录体重",drink:"记录每日饮品",outfit:"记录今日穿搭",period:"记录姨妈周期",note:"添加学习笔记"};
   return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="modal form-modal"><button className="modal-close" onClick={close} aria-label="关闭"><X/></button><span className="eyebrow">{workspaceName}</span><h2>{titles[modal as keyof typeof titles]}</h2>
     {modal==="task"&&<><Field label="任务名称"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="例如：完成一轮 AI 训练测试"/></Field><div className="form-grid"><Field label="类型"><select onChange={e=>set("category",e.target.value)}><option>AI训练</option><option>提示词测试</option><option>素材整理</option><option>学习研究</option><option>生活事务</option><option>其他</option></select></Field><Field label="优先级"><select onChange={e=>set("priority",e.target.value)}><option>重要不紧急</option><option>紧急重要</option><option>普通</option><option>可延后</option></select></Field></div><Field label="预计时长（分钟）"><input type="number" min="5" value={form.minutes||"30"} onChange={e=>set("minutes",e.target.value)}/></Field><Field label="具体下一步"><textarea value={form.next||""} onChange={e=>set("next",e.target.value)} placeholder="15–30 分钟内能完成什么？"/></Field><Field label="完成标准"><textarea value={form.standard||""} onChange={e=>set("standard",e.target.value)} placeholder="怎样算完成？"/></Field></>}
+    {modal==="schedule"&&<><div className="form-grid"><Field label="计划日期"><input autoFocus type="date" value={form.date||defaultScheduleDate} onChange={e=>set("date",e.target.value)}/></Field><Field label="开始时间"><input type="time" value={form.time||"09:00"} onChange={e=>set("time",e.target.value)}/></Field></div><Field label="日程名称"><input value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="例如：和朋友吃晚饭"/></Field><Field label="类型"><select value={form.type||"个人安排"} onChange={e=>set("type",e.target.value)}><option>个人安排</option><option>工作</option><option>学习</option><option>运动</option><option>约会</option><option>出行</option><option>其他</option></select></Field><div className="privacy-note">可以选择今天之后的任意日期。保存后会出现在对应日期的日历和日程列表中。</div></>}
     {modal==="temporary"&&<><Field label="任务名称"><input autoFocus value={form.title||""} onChange={e=>set("title",e.target.value)} placeholder="突然出现的事情"/></Field><Field label="截止日期（可选）"><input type="date" onChange={e=>set("deadline",e.target.value)}/></Field><Field label="优先级"><select onChange={e=>set("priority",e.target.value)}><option>普通</option><option>紧急重要</option><option>重要不紧急</option><option>可延后</option></select></Field></>}
     {modal==="expense"&&<><Field label="金额"><div className="money-input"><span>¥</span><input type="number" inputMode="decimal" min=".01" step=".01" value={form.amount||""} onChange={e=>set("amount",e.target.value)} placeholder="0.00"/></div></Field><div className="form-grid"><Field label="类型"><select value={form.type||"支出"} onChange={e=>set("type",e.target.value)}><option>支出</option><option>收入</option><option>转账</option></select></Field><Field label="分类"><select value={form.category||"餐饮"} onChange={e=>set("category",e.target.value)}><option>餐饮</option><option>交通</option><option>购物</option><option>学习</option><option>医疗</option><option>工作</option><option>其他</option></select></Field></div><Field label="备注"><input value={form.note||""} onChange={e=>set("note",e.target.value)} placeholder={form.type==="收入"?"这笔收入来自哪里？":form.type==="转账"?"转入或转出的账户":"这笔钱花在哪里？"}/></Field><div className="privacy-note">收入增加本月结余，支出减少本月结余；账户之间的转账不计入收支。</div></>}
     {modal==="weight"&&<><Field label="体重（kg）"><input autoFocus type="number" inputMode="decimal" step=".1" value={form.value||""} onChange={e=>set("value",e.target.value)} placeholder="例如 62.5"/></Field><div className="privacy-note">体重只是身体状态的一项记录，不代表你的价值。每周记录一次就足够了。</div></>}

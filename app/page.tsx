@@ -35,7 +35,7 @@ import {
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-type Page = "today" | "tasks" | "calendar" | "temporary" | "focusData" | "checkins" | "health" | "weight" | "finance" | "growth" | "emotion" | "weekly" | "monthly" | "trends" | "settings";
+type Page = "today" | "tasks" | "calendar" | "temporary" | "health" | "weight" | "finance" | "growth" | "emotion" | "weekly" | "monthly" | "trends" | "settings";
 type Modal = null | "task" | "schedule" | "expense" | "temporary" | "weight" | "drink" | "outfit" | "period" | "focus" | "emotion" | "note";
 type EditingItem=
   |{kind:"task";value:WorkspaceData["tasks"][number]}
@@ -47,10 +47,8 @@ type FontChoice = "cute" | "system" | "rounded";
 const nav: { id: Page; label: string; icon: typeof Home }[] = [
   { id: "today", label: "今日首页", icon: Home }, { id: "tasks", label: "每日任务", icon: ListTodo },
   { id: "calendar", label: "日历日程", icon: CalendarDays }, { id: "temporary", label: "临时任务", icon: NotebookPen },
-  { id: "focusData", label: "专注记录", icon: Clock3 },
-  { id: "checkins", label: "到达与离开打卡", icon: MapPin },
   { id: "health", label: "生活与健康", icon: Activity },
-  { id: "finance", label: "记账本", icon: WalletCards }, { id: "growth", label: "学习成长", icon: BookOpen },
+  { id: "finance", label: "记账本", icon: WalletCards }, { id: "growth", label: "成长与行动", icon: Sparkles },
   { id: "emotion", label: "情绪暂停", icon: HeartHandshake }, { id: "weekly", label: "每周计划与复盘", icon: Sparkles },
   { id: "monthly", label: "每月总结", icon: CalendarDays },
   { id: "trends", label: "历史趋势", icon: BarChart3 }, { id: "settings", label: "设置与数据", icon: Settings },
@@ -58,8 +56,8 @@ const nav: { id: Page; label: string; icon: typeof Home }[] = [
 
 const pageTitle: Record<Page, [string, string]> = {
   today:["今日","把注意力放回此刻"], tasks:["每日任务","清楚地完成，不把一天塞满"], calendar:["日历日程","为重要的事留出时间"],
-  temporary:["临时任务","先接住，再安排"], focusData:["专注记录","按天累积，看见自己的专注时间"], checkins:["到达与离开打卡","到达时开始，离开时为这段行动收尾"], health:["生活与健康","身体、饮品、穿搭、体重与周期，都在这里温和记录"], weight:["生活与健康","观察身体，不做评判"],
-  finance:["个人记账","看见钱的去向，不制造消费焦虑"], growth:["学习成长","把输入变成自己的行动"], emotion:["情绪暂停","情绪可以存在，但不必立刻行动"],
+  temporary:["临时任务","先接住，再安排"], health:["生活与健康","身体、饮品、穿搭、体重与周期，都在这里温和记录"], weight:["生活与健康","观察身体，不做评判"],
+  finance:["个人记账","看见钱的去向，不制造消费焦虑"], growth:["成长与行动","专注、到达足迹和学习记录，集中在一个地方"], emotion:["情绪暂停","情绪可以存在，但不必立刻行动"],
   weekly:["每周计划与复盘","只统计所选自然周的数据"], monthly:["每月总结","按自然月看见真实变化"], trends:["历史趋势","从变化中了解自己"], settings:["设置与数据","数据只属于你"],
 };
 
@@ -232,12 +230,10 @@ export default function HomePage() {
         page==="tasks" ? <Tasks data={data} toggle={toggleTask} open={setModal} edit={item=>{setEditingItem({kind:"task",value:item});setModal("task")}} remove={remove} arrive={arriveCheckin} leave={leaveCheckin}/> :
         page==="calendar" ? <Calendar data={data} open={setModal} openSchedule={openSchedule} removeSchedule={removeSchedule}/> :
         page==="temporary" ? <Temporary data={data} open={setModal} remove={remove} update={update}/> :
-        page==="focusData" ? <FocusInsights data={data}/> :
-        page==="checkins" ? <CheckinInsights data={data} update={update} notify={notify} leave={leaveCheckin}/> :
         page==="health" ? <Health data={data} update={update} notify={notify}/> :
         page==="weight" ? <Weight data={data} open={setModal}/> :
         page==="finance" ? <Finance data={data} update={update} income={monthFinance.income} expense={monthFinance.expense} balance={monthFinance.balance} monthKey={monthKey} open={setModal} edit={item=>{setEditingItem({kind:"transaction",value:item});setModal("expense")}} remove={remove}/> :
-        page==="growth" ? <Growth data={data} open={setModal} remove={remove} update={update}/> :
+        page==="growth" ? <Growth data={data} open={setModal} remove={remove} update={update} notify={notify} leave={leaveCheckin}/> :
         page==="emotion" ? <Emotion data={data} open={setModal}/> :
         page==="weekly" ? <Weekly data={data} update={update} download={download}/> :
         page==="monthly" ? <Monthly data={data}/> :
@@ -249,14 +245,51 @@ export default function HomePage() {
       {[["today","今日",Home],["calendar","日历",CalendarDays],["temporary","记录",Plus],["health","健康",Activity],["settings","我的",UserRound]].map(([id,label,Icon])=><button key={id as string} className={page===id?"active":""} onClick={()=>setPage(id as Page)}><Icon size={21}/><span>{label as string}</span></button>)}
     </nav>
     {mobileMenu&&<div className="drawer-backdrop" onClick={()=>setMobileMenu(false)}><div className="drawer" onClick={e=>e.stopPropagation()}><div className="drawer-title"><b>全部功能</b><button className="icon" onClick={()=>setMobileMenu(false)}><X/></button></div>{nav.map(n=><button key={n.id} onClick={()=>{setPage(n.id);setMobileMenu(false)}}><n.icon size={19}/>{n.label}</button>)}</div></div>}
-    {modal&&<Editor modal={modal} close={()=>{setModal(null);setEditingItem(null)}} update={update} notify={notify} timer={timer} setTimer={setTimer} goFocusData={()=>{setModal(null);setEditingItem(null);setPage("focusData")}} workspaceName={workspaceName} defaultScheduleDate={scheduleDate} workspaceData={data} editingItem={editingItem}/>}
+    {modal&&<Editor modal={modal} close={()=>{setModal(null);setEditingItem(null)}} update={update} notify={notify} timer={timer} setTimer={setTimer} goFocusData={()=>{setModal(null);setEditingItem(null);setPage("growth")}} workspaceName={workspaceName} defaultScheduleDate={scheduleDate} workspaceData={data} editingItem={editingItem}/>}
     {toast&&<div className="toast" role="status" aria-live="polite"><Check size={17}/>{toast}</div>}
   </div>;
 }
 
+type DayTimelineItem={
+  id:string;
+  kind:"plan"|"actual";
+  sortAt:number;
+  time:string;
+  title:string;
+  detail:string;
+};
+function clockTime(iso:string){
+  const date=new Date(iso);
+  return Number.isFinite(date.getTime())?date.toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"}):"--:--";
+}
+function timelineForDate(data:WorkspaceData,date:string):DayTimelineItem[]{
+  const plans=schedulesForDate(data.schedule,date).map(item=>({
+    id:`plan-${item.id}`,kind:"plan" as const,
+    sortAt:new Date(`${item.date}T${item.time}:00`).getTime(),
+    time:item.time,title:item.title,detail:`计划 · ${item.type}`,
+  }));
+  const actual=data.checkins.filter(item=>item.date===date).map(item=>{
+    const arrived=clockTime(item.arrivedAt);
+    const stay=formatFocusTotal(checkinDurationMinutes(item.arrivedAt,item.leftAt));
+    return {
+      id:`actual-${item.id}`,kind:"actual" as const,
+      sortAt:new Date(item.arrivedAt).getTime()||0,
+      time:arrived,
+      title:item.taskId?item.title:item.place,
+      detail:item.leftAt
+        ?`实际足迹 · ${item.place} · ${clockTime(item.leftAt)} 离开 · 停留 ${stay}`
+        :`实际足迹 · ${item.place} · 已到达，尚未离开`,
+    };
+  });
+  return [...plans,...actual].sort((a,b)=>a.sortAt-b.sortAt);
+}
+function DayTimeline({items,removeSchedule}:{items:DayTimelineItem[];removeSchedule?:(id:string)=>void}){
+  return <div className="timeline mixed-timeline">{items.map(item=><div className={`time-row ${item.kind}`} key={item.id}><time>{item.time}</time><span className={`dot ${item.kind}`}/><div className="schedule-entry"><div><div className="timeline-title"><b>{item.title}</b><small>{item.kind==="actual"?"实际":"计划"}</small></div><p>{item.detail}</p></div>{item.kind==="plan"&&removeSchedule&&<button className="icon danger" onClick={()=>removeSchedule(item.id.replace("plan-",""))} aria-label={`删除日程：${item.title}`}><Trash2 size={16}/></button>}</div></div>)}</div>
+}
+
 function Today({data,completed,todayExpense,todayTransactions,today,open,go,toggle,update}:{data:WorkspaceData;completed:number;todayExpense:number;todayTransactions:number;today:string;open:(m:Modal)=>void;go:(p:Page)=>void;toggle:(id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){
   const main=data.tasks.find(t=>t.important) || data.tasks[0];
-  const todaySchedule=schedulesForDate(data.schedule,localDateKey());
+  const todayTimeline=timelineForDate(data,localDateKey());
   const todayHealth=healthOn(data.healthRecords,localDateKey());
   return <><section className="hello"><div><span className="eyebrow">{today}</span><h2>{data.profile.name.trim()?`${data.profile.name.trim()}，今天想从哪件小事开始？`:"今天想从哪件小事开始？"}</h2><p>按自己的节奏来，先做好此刻最重要的一件事。</p></div><div className="status-select"><label>今日状态</label><select value={todayHealth.status} onChange={e=>update(d=>({...d,status:"",healthRecords:upsertHealth(d.healthRecords,localDateKey(),{status:e.target.value})}))}><option value="">选择今天的状态</option><option>精力正常</option><option>状态很好</option><option>有点疲惫</option><option>情绪波动</option><option>很需要休息</option></select></div></section>
   {(todayHealth.status==="情绪波动"||todayHealth.status==="很需要休息")&&<div className="gentle-banner"><Moon size={20}/><div><b>今天可以少安排一点</b><p>先照顾身体，只保留真正必要的一件事。</p></div></div>}
@@ -266,7 +299,7 @@ function Today({data,completed,todayExpense,todayTransactions,today,open,go,togg
     <Summary icon={NotebookPen} title="临时任务" value={`${data.temporary.filter(t=>!t.done).length} 项`} note={data.temporary[0]?.title||"暂无临时任务"} onClick={()=>go("temporary")}/>
   </section>
   {main&&<section className="focus-card"><div className="focus-top"><div><span className="eyebrow">今日最重要任务</span><h2>{main.title}</h2></div><span className="duration"><Clock3 size={16}/>{main.minutes} 分钟</span></div><div className="focus-details"><div><span>具体下一步</span><p>{main.next}</p></div><div><span>完成标准</span><p>{main.standard}</p></div></div><div className="focus-actions"><button className="primary" onClick={()=>open("focus")}><Play size={17}/>开始专注</button><button className="secondary" onClick={()=>toggle(main.id)}>{main.done?"恢复任务":"标记完成"}</button></div></section>}
-  <section className="panel"><div className="panel-head"><div><span className="eyebrow">时间轴</span><h3>接下来的安排</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{todaySchedule.length?<div className="timeline">{todaySchedule.map((x,i)=><div className="time-row" key={x.id}><time>{x.time}</time><span className={i===0?"dot current":"dot"}/><div><b>{x.title}</b><p>{x.type}</p></div></div>)}</div>:<Empty title="今天还没有日程" note="给今天留一点空间，或去日历安排之后的计划。"/>}</section></>
+  <section className="panel"><div className="panel-head"><div><span className="eyebrow">今日时间轴</span><h3>计划与实际足迹</h3></div><button className="text-btn" onClick={()=>go("calendar")}>查看全部<ChevronRight size={15}/></button></div>{todayTimeline.length?<DayTimeline items={todayTimeline}/>:<Empty title="今天还没有行程或足迹" note="添加计划，或到达一个地点后打卡，都会显示在这里。"/>}</section></>
 }
 
 function Summary({icon:Icon,title,value,note,progress,action,onAction,onClick}:{icon:typeof Home;title:string;value:string;note:string;progress?:number;action?:string;onAction?:()=>void;onClick?:()=>void}){return <article className="summary-card" onClick={onClick}><div className="summary-icon"><Icon size={18}/></div><span>{title}</span><strong>{value}</strong><p>{note}</p>{progress!==undefined&&<div className="progress" aria-label={`完成进度${Math.round(progress*100)}%`}><i style={{width:`${progress*100}%`}}/></div>}{action&&<button className="text-btn" onClick={e=>{e.stopPropagation();onAction?.()}}>{action}<Plus size={15}/></button>}</article>}
@@ -286,15 +319,16 @@ function Calendar({data,open,openSchedule,removeSchedule}:{data:WorkspaceData;op
   const cells=buildMonthCalendar(year,month);
   const drinksByDate=new Map<string,WorkspaceData["drinks"]>();
   for(const drink of data.drinks){const list=drinksByDate.get(drink.date)||[];list.push(drink);drinksByDate.set(drink.date,list)}
-  const scheduleCount=new Map<string,number>();
-  for(const item of data.schedule)scheduleCount.set(item.date,(scheduleCount.get(item.date)||0)+1);
-  const selectedSchedule=schedulesForDate(data.schedule,selectedDate);
+  const timelineCount=new Map<string,number>();
+  for(const item of data.schedule)timelineCount.set(item.date,(timelineCount.get(item.date)||0)+1);
+  for(const item of data.checkins)timelineCount.set(item.date,(timelineCount.get(item.date)||0)+1);
+  const selectedTimeline=timelineForDate(data,selectedDate);
   const selectedDateValue=(()=>{const [y,m,d]=selectedDate.split("-").map(Number);return new Date(y,m-1,d)})();
   const selectedLabel=new Intl.DateTimeFormat("zh-CN",{month:"long",day:"numeric",weekday:"long"}).format(selectedDateValue);
   function changeMonth(offset:number){setViewMonth(current=>new Date(current.getFullYear(),current.getMonth()+offset,1))}
   function selectDay(dateKey:string,inMonth:boolean){setSelectedDate(dateKey);if(!inMonth){const [y,m]=dateKey.split("-").map(Number);setViewMonth(new Date(y,m-1,1))}}
   function backToday(){setSelectedDate(today);setViewMonth(new Date(now.getFullYear(),now.getMonth(),1))}
-  return <><section className="panel calendar-panel"><div className="panel-head calendar-title-row"><div><span className="eyebrow">月视图</span><div className="calendar-month-switch"><button className="icon" onClick={()=>changeMonth(-1)} aria-label="上个月"><ChevronLeft size={20}/></button><h2>{year} 年 {month+1} 月</h2><button className="icon" onClick={()=>changeMonth(1)} aria-label="下个月"><ChevronRight size={20}/></button><button className="text-btn" onClick={backToday}>回到今天</button></div><p>选择任意日期查看或添加计划；杯子贴纸仍显示在记录当天。</p></div><div className="calendar-actions"><button className="secondary" onClick={()=>open("drink")}><Camera size={17}/>拍今天的饮品</button><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>为选中日期添加</button></div></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const drinks=drinksByDate.get(cell.dateKey)||[],stickers=drinks.filter(x=>x.photo&&x.sticker),count=scheduleCount.get(cell.dateKey)||0;const dayDescription=`${cell.dateKey}${count?`，${count} 项日程`:""}${drinks.length?`，${drinks.length} 条饮品记录`:""}`;return <button key={cell.dateKey} className={`${cell.dateKey===today?"today-day ":""}${cell.dateKey===selectedDate?"selected-day ":""}${!cell.inMonth?"muted-day ":""}${stickers.length?"has-sticker":""}`} title={dayDescription} aria-label={dayDescription} onClick={()=>selectDay(cell.dateKey,cell.inMonth)}><span className="calendar-day-number">{cell.day}</span>{cell.dateKey===today&&<small>今天</small>}{count>0&&<span className="calendar-schedule-count">{count}</span>}{stickers.length?<span className="calendar-stickers">{stickers.slice(0,2).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</span>:drinks.length?<i/>:null}</button>})}</div><div className="legend"><span>小圆点数字：当天的日程数量</span><span>☕ 杯子贴纸：当天有饮品照片</span></div></section><section className="panel selected-schedule-panel"><div className="panel-head"><div><span className="eyebrow">{selectedDate===today?"今天":"已选日期"}</span><h3>{selectedLabel}的日程</h3></div><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>添加日程</button></div>{selectedSchedule.length?<div className="timeline">{selectedSchedule.map(x=><div className="time-row schedule-time-row" key={x.id}><time>{x.time}</time><span className="dot"/><div className="schedule-entry"><div><b>{x.title}</b><p>{x.type}</p></div><button className="icon danger" onClick={()=>removeSchedule(x.id)} aria-label={`删除日程：${x.title}`}><Trash2 size={16}/></button></div></div>)}</div>:<Empty title="这一天还没有日程" note="可以先把想做的事安排到这一天。"/>}</section></>
+  return <><section className="panel calendar-panel"><div className="panel-head calendar-title-row"><div><span className="eyebrow">月视图</span><div className="calendar-month-switch"><button className="icon" onClick={()=>changeMonth(-1)} aria-label="上个月"><ChevronLeft size={20}/></button><h2>{year} 年 {month+1} 月</h2><button className="icon" onClick={()=>changeMonth(1)} aria-label="下个月"><ChevronRight size={20}/></button><button className="text-btn" onClick={backToday}>回到今天</button></div><p>选择日期查看计划与实际足迹；杯子贴纸仍显示在记录当天。</p></div><div className="calendar-actions"><button className="secondary" onClick={()=>open("drink")}><Camera size={17}/>拍今天的饮品</button><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>为选中日期添加</button></div></div><div className="calendar-head">{["一","二","三","四","五","六","日"].map(x=><span key={x}>{x}</span>)}</div><div className="calendar-grid">{cells.map(cell=>{const drinks=drinksByDate.get(cell.dateKey)||[],stickers=drinks.filter(x=>x.photo&&x.sticker),count=timelineCount.get(cell.dateKey)||0;const dayDescription=`${cell.dateKey}${count?`，${count} 条计划或足迹`:""}${drinks.length?`，${drinks.length} 条饮品记录`:""}`;return <button key={cell.dateKey} className={`${cell.dateKey===today?"today-day ":""}${cell.dateKey===selectedDate?"selected-day ":""}${!cell.inMonth?"muted-day ":""}${stickers.length?"has-sticker":""}`} title={dayDescription} aria-label={dayDescription} onClick={()=>selectDay(cell.dateKey,cell.inMonth)}><span className="calendar-day-number">{cell.day}</span>{cell.dateKey===today&&<small>今天</small>}{count>0&&<span className="calendar-schedule-count">{count}</span>}{stickers.length?<span className="calendar-stickers">{stickers.slice(0,2).map(x=><img key={x.id} src={x.photo} alt={`${x.name}杯子贴纸`}/>)}</span>:drinks.length?<i/>:null}</button>})}</div><div className="legend"><span>数字：当天的计划与实际足迹总数</span><span>☕ 杯子贴纸：当天有饮品照片</span></div></section><section className="panel selected-schedule-panel"><div className="panel-head"><div><span className="eyebrow">{selectedDate===today?"今天":"已选日期"}</span><h3>{selectedLabel}的计划与足迹</h3></div><button className="primary" onClick={()=>openSchedule(selectedDate)}><Plus size={17}/>添加计划</button></div>{selectedTimeline.length?<DayTimeline items={selectedTimeline} removeSchedule={removeSchedule}/>:<Empty title="这一天还没有计划或足迹" note="可以先安排想做的事；当天的到达打卡也会自动出现在这里。"/>}</section></>
 }
 
 function Temporary({data,open,remove,update}:{data:WorkspaceData;open:(m:Modal)=>void;remove:(k:"temporary",id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){return <section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">任务收件箱</span><h2>先记下来，稍后安排</h2></div><button className="primary" onClick={()=>open("temporary")}><Plus size={17}/>添加临时任务</button></div>{data.temporary.length?data.temporary.map(t=><div className="task-row" key={t.id}><button className={t.done?"check done":"check"} onClick={()=>update(d=>({...d,temporary:d.temporary.map(x=>x.id===t.id?{...x,done:!x.done}:x)}))}>{t.done&&<Check size={15}/>}</button><div className="task-main"><b>{t.title}</b><p>截止：{t.deadline||"无明确日期"} · {t.priority}</p></div><button className="secondary small" onClick={()=>update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:t.title,next:"确认下一步并开始处理",standard:"任务已处理完成",minutes:30,category:"其他",priority:t.priority,done:false,createdDate:localDateKey(),completedDate:""}],temporary:d.temporary.filter(x=>x.id!==t.id)}))}>安排到今日</button><button className="icon danger" onClick={()=>remove("temporary",t.id)}><Trash2 size={17}/></button></div>):<Empty title="收件箱是空的" note="临时出现的事情，可以先放在这里。" action="添加第一项" onClick={()=>open("temporary")}/>}</section>}
@@ -441,7 +475,25 @@ function Finance({data,update,income,expense,balance,monthKey,open,edit,remove}:
   const budgetLabel=budgetPercent>0&&budgetPercent<1?"<1%":`${Math.round(budgetPercent)}%`;
   return <><section className="finance-hero"><div><span>本月结余</span><strong>¥{balance.toFixed(2)}</strong><p>收入 ¥{income.toFixed(2)} · 支出 ¥{expense.toFixed(2)}</p></div><button className="primary light" onClick={()=>open("expense")}><Plus size={17}/>记一笔</button></section><section className="two-col"><div className="panel"><div className="panel-head"><h3>最近账单</h3></div>{data.transactions.length?data.transactions.map(t=><div className="transaction" key={t.id}><div className="category-icon">{t.category[0]}</div><div><b>{t.note||t.category}</b><p>{t.type} · {t.category} · {t.date}</p></div><strong className={t.type==="收入"?"income":t.type==="转账"?"transfer":""}>{t.type==="支出"?"-":t.type==="收入"?"+":"↔"}¥{t.amount.toFixed(2)}</strong><button className="icon" onClick={()=>edit(t)} aria-label="修改账单"><Pencil size={16}/></button><button className="icon danger" onClick={()=>remove("transactions",t.id)} aria-label="删除账单"><Trash2 size={16}/></button></div>):<Empty title="还没有账单" note="记录第一笔收入或支出后，会显示在这里。" action="记第一笔" onClick={()=>open("expense")}/>}</div><div className="panel"><div className="panel-head"><h3>本月分类支出</h3></div><div className="donut-wrap"><div className="donut" style={donutStyle}><span>{expense?Math.round(top.value/expense*100):0}%<small>{expense?top.name:"暂无支出"}</small></span></div><div className="category-list">{categories.map((x,i)=><div key={x}><i style={{background:colors[i]}}/>{x}<span>¥{(totals[x]||0).toFixed(2)}</span></div>)}</div></div><div className="budget"><label>本月预算（元）<input type="number" min="0" step="100" value={budget||""} placeholder="不设置预算" onChange={e=>update(d=>({...d,settings:{...d.settings,monthlyBudget:Math.max(0,normalizeMoney(e.target.value||0))}}))}/></label><b>{budget?`已使用 ${budgetLabel}`:"暂未设置预算"}</b><div className="progress"><i style={{width:`${Math.min(100,budgetPercent)}%`}}/></div><p>{budgetPercent>100?"本月已超过参考预算，后续记录会继续如实累计。":"预算进度仅作参考，以实际需要为准。"}</p></div></div></section></>}
 
-function Growth({data,open,remove,update}:{data:WorkspaceData;open:(m:Modal)=>void;remove:(k:"notes",id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void}){return <><section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">学习与灵感</span><h2>留下真正对自己有用的内容</h2></div><button className="primary" onClick={()=>open("note")}><Plus size={17}/>添加笔记</button></div><div className="note-grid">{data.notes.map(n=><article className="note-card" key={n.id}><span>{n.type}</span><h3>{n.title}</h3><p>{n.content}</p><div><button className="text-btn" onClick={()=>{update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:n.action||`整理：${n.title}`,next:"明确下一步并开始",standard:"行动已完成",minutes:20,category:"学习研究",priority:"重要不紧急",done:false,createdDate:localDateKey(),completedDate:""}]}));}}>转为任务<ChevronRight size={14}/></button><button className="icon danger" onClick={()=>remove("notes",n.id)}><Trash2 size={16}/></button></div></article>)}</div></section></>}
+function Growth({data,open,remove,update,notify,leave}:{data:WorkspaceData;open:(m:Modal)=>void;remove:(k:"notes",id:string)=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(message:string)=>void;leave:(id:string)=>void}){
+  const [section,setSection]=useState<"focus"|"checkins"|"notes">("focus");
+  return <div className="growth-hub">
+    <section className="panel growth-hub-head">
+      <div><span className="eyebrow">成长与行动</span><h2>今天想从哪里开始？</h2><p>专注计时、到达足迹和学习记录集中在这里，需要时再展开。</p></div>
+      <div className="growth-hub-tabs" role="tablist" aria-label="成长与行动分区">
+        <button role="tab" aria-selected={section==="focus"} className={section==="focus"?"active":""} onClick={()=>setSection("focus")}><Clock3 size={17}/>专注</button>
+        <button role="tab" aria-selected={section==="checkins"} className={section==="checkins"?"active":""} onClick={()=>setSection("checkins")}><MapPin size={17}/>到达打卡</button>
+        <button role="tab" aria-selected={section==="notes"} className={section==="notes"?"active":""} onClick={()=>setSection("notes")}><BookOpen size={17}/>学习记录</button>
+      </div>
+    </section>
+    {section==="focus"&&<>
+      <section className="panel growth-action-card"><div><span className="eyebrow">专注计时</span><h2>给现在这一件事留出时间</h2><p>支持正计时与自定义倒计时，完成后自动计入周、月累计。</p></div><button className="primary" onClick={()=>open("focus")}><Play size={17}/>开始专注</button></section>
+      <FocusInsights data={data}/>
+    </>}
+    {section==="checkins"&&<CheckinInsights data={data} update={update} notify={notify} leave={leave}/>}
+    {section==="notes"&&<section className="panel page-panel"><div className="panel-head"><div><span className="eyebrow">学习与灵感</span><h2>留下真正对自己有用的内容</h2></div><button className="primary" onClick={()=>open("note")}><Plus size={17}/>添加笔记</button></div>{data.notes.length?<div className="note-grid">{data.notes.map(n=><article className="note-card" key={n.id}><span>{n.type}</span><h3>{n.title}</h3><p>{n.content}</p><div><button className="text-btn" onClick={()=>{update(d=>({...d,tasks:[...d.tasks,{id:crypto.randomUUID(),title:n.action||`整理：${n.title}`,next:"明确下一步并开始",standard:"行动已完成",minutes:20,category:"学习研究",priority:"重要不紧急",done:false,createdDate:localDateKey(),completedDate:""}]}));notify("已转为一条每日任务");}}>转为任务<ChevronRight size={14}/></button><button className="icon danger" onClick={()=>remove("notes",n.id)} aria-label={`删除学习记录：${n.title}`}><Trash2 size={16}/></button></div></article>)}</div>:<Empty title="还没有学习记录" note="读到一句话、想到一个点子，或完成一次复盘，都可以记在这里。" action="添加第一条" onClick={()=>open("note")}/>}</section>}
+  </div>
+}
 
 function Emotion({data,open}:{data:WorkspaceData;open:(m:Modal)=>void}){return <><section className="emotion-hero"><HeartHandshake size={28}/><span className="eyebrow">此刻先停一下</span><h2>情绪可以存在，但不必立刻采取行动。</h2><p>你不需要马上得出结论，也不需要在情绪最强烈的时候回复任何人。</p><button className="primary" onClick={()=>open("emotion")}>开始 5·3·2·1 落地练习</button></section><section className="two-col"><div className="panel"><h3>今天可以选择的替代行动</h3><div className="choice-list">{["延迟 30 分钟再回复","写下来但不发送","喝水或吃一点东西","完成 15 分钟手边工作","今天暂停讨论"].map(x=><label key={x}><input type="checkbox"/>{x}</label>)}</div></div><div className="panel"><h3>我的消息边界</h3><div className="choice-list">{data.boundaries.map(x=><label key={x}><input type="checkbox" defaultChecked/>{x}</label>)}</div></div></section></>}
 
@@ -624,7 +676,7 @@ async function processCupSticker(input:Blob|string):Promise<string>{
 
 function Editor({modal,close,update,notify,timer,setTimer,goFocusData,workspaceName="我的工作台",defaultScheduleDate=localDateKey(),workspaceData,editingPeriod=null,editingItem=null}:{modal:Exclude<Modal,null>;close:()=>void;update:(f:(d:WorkspaceData)=>WorkspaceData)=>void;notify:(x:string)=>void;timer:TimerState;setTimer:React.Dispatch<React.SetStateAction<TimerState>>;goFocusData:()=>void;workspaceName?:string;defaultScheduleDate?:string;workspaceData:WorkspaceData;editingPeriod?:WorkspaceData["periods"][number]|null;editingItem?:EditingItem|null}){
   const today=localDateKey();
-  const [form,setForm]=useState<Record<string,string>>(()=>{
+  const [form,setForm]=useState<Record<string,string>>(():Record<string,string>=>{
     if(modal==="schedule")return {date:defaultScheduleDate,time:"09:00",type:"个人安排"};
     if(editingPeriod)return {...editingPeriod};
     if(editingItem?.kind==="task"){const item=editingItem.value;return {title:item.title,next:item.next,standard:item.standard,minutes:String(item.minutes),category:item.category,priority:item.priority,checkinPlace:item.checkinPlace||""}}
